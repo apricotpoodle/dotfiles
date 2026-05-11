@@ -1,0 +1,357 @@
+# ~/.dotfiles/Makefile
+# Gestion des dotfiles avec Stow - Version corrigée avec détection robuste
+
+# =============================================================================
+# DÉFINITION DES COULEURS ANSI
+# =============================================================================
+RED := \033[0;31m
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+BLUE := \033[0;34m
+PURPLE := \033[0;35m
+CYAN := \033[0;36m
+WHITE := \033[1;37m
+BOLD := \033[1m
+RESET := \033[0m
+
+# =============================================================================
+# VARIABLES
+# =============================================================================
+DOTFILES_DIR := $(shell pwd)
+HOME_DIR := $(HOME)
+
+# Détection dynamique des packages (CORRIGÉ)
+# Utilise find pour détecter TOUS les dossiers, puis filtre les exclus
+PACKAGES := $(shell find . -maxdepth 1 -type d ! -name '.' ! -name '.git' ! -name '.*' -printf '%f\n' 2>/dev/null | sort)
+
+# Liste des exclusions (fichiers et dossiers à ignorer)
+EXCLUDED := Makefile README.md readme.md .git .gitignore install.sh check-deps.sh
+
+# =============================================================================
+# ÉMOJIS
+# =============================================================================
+EMOJI_SUCCESS := ✅
+EMOJI_ERROR := ❌
+EMOJI_WARNING := ⚠️
+EMOJI_INFO := ℹ️
+EMOJI_STAR := 🚀
+EMOJI_PACKAGE := 📦
+EMOJI_CHECK := ✔️
+EMOJI_CROSS := ✘
+
+# =============================================================================
+# CIBLES PHARES
+# =============================================================================
+
+.PHONY: welcome
+welcome:
+	@echo ""
+	@echo "$(BOLD)$(PURPLE)╔═══════════════════════════════════════════════════════════╗$(RESET)"
+	@echo "$(BOLD)$(PURPLE)║  $(EMOJI_STAR)  Gestion des Dotfiles avec Stow  $(EMOJI_STAR)                 ║$(RESET)"
+	@echo "$(BOLD)$(PURPLE)╚═══════════════════════════════════════════════════════════╝$(RESET)"
+	@echo ""
+
+# =============================================================================
+# INSTALLATION
+# =============================================================================
+
+.PHONY: all
+all: welcome
+	@echo "$(BOLD)$(GREEN)=== Installation de TOUS les packages ===$(RESET)"
+	@echo ""
+	@if [ -z "$(PACKAGES)" ]; then \
+		echo "$(EMOJI_ERROR) $(RED)AUCUN PACKAGE DÉTECTÉ$(RESET)"; \
+		echo "$(EMOJI_INFO) Vérifiez que des dossiers existent dans $(DOTFILES_DIR)"; \
+		exit 1; \
+	fi
+	@total=0; success=0; failed=0; \
+	for pkg in $(PACKAGES); do \
+		total=$$((total + 1)); \
+		echo "$(EMOJI_INFO) Installation de $$pkg..."; \
+		if stow -t $(HOME_DIR) $$pkg 2>/dev/null; then \
+			echo "$(EMOJI_SUCCESS) $(GREEN)$$pkg$(RESET) installé avec succès"; \
+			success=$$((success + 1)); \
+		else \
+			echo "$(EMOJI_ERROR) $(RED)$$pkg$(RESET) échec de l'installation"; \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	echo ""; \
+	echo "$(BOLD)=== Résumé ===$(RESET)"; \
+	echo "$(EMOJI_PACKAGE) Total : $$total package(s)"; \
+	echo "$(EMOJI_CHECK) Installés : $$success"; \
+	echo "$(EMOJI_CROSS) Échecs : $$failed"; \
+	echo ""
+
+# Installer un package spécifique
+$(PACKAGES):
+	@echo "$(BOLD)$(GREEN)=== Installation de $@ ===$(RESET)"
+	@if [ -d "$(DOTFILES_DIR)/$@" ]; then \
+		if stow -t $(HOME_DIR) $@ 2>/dev/null; then \
+			echo "$(EMOJI_SUCCESS) $(GREEN)$@$(RESET) installé avec succès"; \
+		else \
+			echo "$(EMOJI_ERROR) $(RED)$@$(RESET) échec de l'installation"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "$(EMOJI_ERROR) $(RED)Package $@ introuvable$(RESET)"; \
+		exit 1; \
+	fi
+
+# =============================================================================
+# DÉSINSTALLATION
+# =============================================================================
+
+.PHONY: uninstall
+uninstall: welcome
+	@echo "$(BOLD)$(RED)=== Désinstallation de TOUS les packages ===$(RESET)"
+	@echo ""
+	@total=0; success=0; \
+	for pkg in $(PACKAGES); do \
+		total=$$((total + 1)); \
+		echo "$(EMOJI_INFO) Désinstallation de $$pkg..."; \
+		if stow -t $(HOME_DIR) --delete $$pkg 2>/dev/null; then \
+			echo "$(EMOJI_SUCCESS) $(GREEN)$$pkg$(RESET) désinstallé"; \
+			success=$$((success + 1)); \
+		else \
+			echo "$(EMOJI_WARNING) $(YELLOW)$$pkg$(RESET) n'était pas installé"; \
+		fi; \
+	done; \
+	echo ""; \
+	echo "$(BOLD)=== Résumé ===$(RESET)"; \
+	echo "$(EMOJI_PACKAGE) Total : $$total package(s)"; \
+	echo "$(EMOJI_CHECK) Désinstallés : $$success"; \
+	echo ""
+
+uninstall-%:
+	@echo "$(BOLD)$(RED)=== Désinstallation de $* ===$(RESET)"
+	@if stow -t $(HOME_DIR) --delete $* 2>/dev/null; then \
+		echo "$(EMOJI_SUCCESS) $(GREEN)$*$(RESET) désinstallé avec succès"; \
+	else \
+		echo "$(EMOJI_WARNING) $(YELLOW)$*$(RESET) n'était pas installé"; \
+	fi
+
+# =============================================================================
+# VÉRIFICATION
+# =============================================================================
+
+.PHONY: verify
+verify: welcome
+	@echo "$(BOLD)$(CYAN)=== Vérification des liens Stow ===$(RESET)"
+	@echo ""
+	@if [ -z "$(PACKAGES)" ]; then \
+		echo "$(EMOJI_ERROR) $(RED)AUCUN PACKAGE DÉTECTÉ$(RESET)"; \
+		exit 1; \
+	fi
+	@ok=0; warning=0; error=0; \
+	for pkg in $(PACKAGES); do \
+		target="$(HOME_DIR)/.config/$$pkg"; \
+		alt_target="$(HOME_DIR)/.$$pkg"; \
+		if [ -L "$$target" ]; then \
+			link_target=$$(readlink "$$target"); \
+			if [ "$$link_target" = "$(DOTFILES_DIR)/$$pkg" ]; then \
+				echo "$(EMOJI_SUCCESS) $(GREEN)$$pkg$(RESET) : lien valide → $$link_target"; \
+				ok=$$((ok + 1)); \
+			else \
+				echo "$(EMOJI_WARNING) $(YELLOW)$$pkg$(RESET) : lien existant mais pointe vers $$link_target"; \
+				warning=$$((warning + 1)); \
+			fi; \
+		elif [ -L "$$alt_target" ]; then \
+			link_target=$$(readlink "$$alt_target"); \
+			if [ "$$link_target" = "$(DOTFILES_DIR)/$$pkg" ]; then \
+				echo "$(EMOJI_SUCCESS) $(GREEN)$$pkg$(RESET) : lien valide → $$link_target"; \
+				ok=$$((ok + 1)); \
+			else \
+				echo "$(EMOJI_WARNING) $(YELLOW)$$pkg$(RESET) : lien existant mais pointe vers $$link_target"; \
+				warning=$$((warning + 1)); \
+			fi; \
+		else \
+			echo "$(EMOJI_ERROR) $(RED)$$pkg$(RESET) : non installé"; \
+			error=$$((error + 1)); \
+		fi; \
+	done; \
+	echo ""; \
+	echo "$(BOLD)=== Résumé ===$(RESET)"; \
+	echo "$(EMOJI_PACKAGE) Total vérifié : $$((ok + warning + error))"; \
+	echo "$(EMOJI_CHECK) Validés : $$ok"; \
+	echo "$(EMOJI_WARNING) Alertes : $$warning"; \
+	echo "$(EMOJI_CROSS) Erreurs : $$error"; \
+	echo ""
+
+check-%:
+	@echo "$(BOLD)$(CYAN)=== Vérification de $* ===$(RESET)"
+	@if [ -L "$(HOME_DIR)/.config/$*" ]; then \
+		link=$$(readlink "$(HOME_DIR)/.config/$*"); \
+		echo "$(EMOJI_SUCCESS) $(GREEN)$*$(RESET) : lien valide → $$link"; \
+	elif [ -L "$(HOME_DIR)/.$*" ]; then \
+		link=$$(readlink "$(HOME_DIR)/.$*"); \
+		echo "$(EMOJI_SUCCESS) $(GREEN)$*$(RESET) : lien valide → $$link"; \
+	else \
+		echo "$(EMOJI_ERROR) $(RED)$*$(RESET) : non installé"; \
+	fi
+
+# =============================================================================
+# LISTAGE
+# =============================================================================
+
+.PHONY: list
+list: welcome
+	@echo "$(BOLD)$(CYAN)=== Packages disponibles ===$(RESET)"
+	@echo ""
+	@if [ -z "$(PACKAGES)" ]; then \
+		echo "$(EMOJI_WARNING) $(YELLOW)AUCUN PACKAGE DÉTECTÉ$(RESET)"; \
+		echo "$(EMOJI_INFO) Créez des dossiers dans $(DOTFILES_DIR)"; \
+	else \
+		count=0; \
+		for pkg in $(PACKAGES); do \
+			echo "  $(EMOJI_PACKAGE) $$pkg"; \
+			count=$$((count + 1)); \
+		done; \
+		echo ""; \
+		echo "$(BOLD)$(WHITE)Total : $$count package(s)$(RESET)"; \
+	fi
+	@echo ""
+
+.PHONY: list-installed
+list-installed: welcome
+	@echo "$(BOLD)$(CYAN)=== Packages installés ===$(RESET)"
+	@echo ""
+	@if [ -z "$(PACKAGES)" ]; then \
+		echo "$(EMOJI_WARNING) $(YELLOW)AUCUN PACKAGE DÉTECTÉ$(RESET)"; \
+	else \
+		count=0; \
+		for pkg in $(PACKAGES); do \
+			if [ -L "$(HOME_DIR)/.config/$$pkg" ] || [ -L "$(HOME_DIR)/.$$pkg" ]; then \
+				link=$$(readlink "$(HOME_DIR)/.config/$$pkg" 2>/dev/null || readlink "$(HOME_DIR)/.$$pkg" 2>/dev/null); \
+				echo "$(EMOJI_SUCCESS) $(GREEN)$$pkg$(RESET) → $$link"; \
+				count=$$((count + 1)); \
+			fi; \
+		done; \
+		if [ $$count -eq 0 ]; then \
+			echo "$(EMOJI_WARNING) $(YELLOW)Aucun package installé$(RESET)"; \
+		fi; \
+		echo ""; \
+		echo "$(BOLD)$(WHITE)Total : $$count package(s) installé(s)$(RESET)"; \
+	fi
+	@echo ""
+
+# =============================================================================
+# DÉPENDANCES
+# =============================================================================
+
+.PHONY: check-deps
+check-deps:
+	@echo "$(BOLD)$(PURPLE)=== Vérification des dépendances ===$(RESET)"
+	@echo ""
+	@echo "$(EMOJI_INFO) Vérification de stow..."; \
+	if command -v stow >/dev/null 2>&1; then \
+		version=$$(stow --version 2>&1 | head -1); \
+		echo "$(EMOJI_SUCCESS) $(GREEN)stow$(RESET) : installé ($$version)"; \
+	else \
+		echo "$(EMOJI_ERROR) $(RED)stow$(RESET) : NON installé"; \
+		echo "  → sudo apt install stow (Debian)"; \
+		echo "  → sudo pacman -S stow (Arch)"; \
+	fi; \
+	echo ""; \
+	@echo "$(EMOJI_INFO) Vérification de git..."; \
+	if command -v git >/dev/null 2>&1; then \
+		version=$$(git --version | head -1); \
+		echo "$(EMOJI_SUCCESS) $(GREEN)git$(RESET) : installé ($$version)"; \
+	else \
+		echo "$(EMOJI_ERROR) $(RED)git$(RESET) : NON installé"; \
+		echo "  → sudo apt install git (Debian)"; \
+		echo "  → sudo pacman -S git (Arch)"; \
+	fi; \
+	echo ""
+
+# =============================================================================
+# NETTOYAGE
+# =============================================================================
+
+.PHONY: clean
+clean:
+	@echo "$(BOLD)$(YELLOW)=== Nettoyage ===$(RESET)"
+	@echo ""
+	@echo "$(EMOJI_INFO) Suppression des fichiers temporaires..."; \
+	find . -name "*.swp" -delete 2>/dev/null || true; \
+	find . -name "*~" -delete 2>/dev/null || true; \
+	find . -name ".DS_Store" -delete 2>/dev/null || true; \
+	echo "$(EMOJI_SUCCESS) $(GREEN)Nettoyage terminé$(RESET)"; \
+	echo ""
+
+# =============================================================================
+# AIDE
+# =============================================================================
+
+.PHONY: help
+help: welcome
+	@echo "$(BOLD)$(CYAN)=== Commandes disponibles ===$(RESET)"
+	@echo ""
+	@echo "$(BOLD)$(GREEN)Installation :$(RESET)"
+	@echo "  $(CYAN)make all$(RESET)              - Installer TOUS les packages"
+	@echo "  $(CYAN)make bashrc$(RESET)           - Installer uniquement bashrc"
+	@echo "  $(CYAN)make espanso$(RESET)          - Installer uniquement espanso"
+	@echo "  $(CYAN)make i3$(RESET)               - Installer uniquement i3"
+	@echo ""
+	@echo "$(BOLD)$(GREEN)Vérification :$(RESET)"
+	@echo "  $(CYAN)make verify$(RESET)           - Vérifier TOUS les packages"
+	@echo "  $(CYAN)make check-bashrc$(RESET)     - Vérifier un package spécifique"
+	@echo ""
+	@echo "$(BOLD)$(GREEN)Désinstallation :$(RESET)"
+	@echo "  $(CYAN)make uninstall$(RESET)        - Désinstaller TOUS les packages"
+	@echo "  $(CYAN)make uninstall-bashrc$(RESET) - Désinstaller uniquement bashrc"
+	@echo ""
+	@echo "$(BOLD)$(GREEN)Listage :$(RESET)"
+	@echo "  $(CYAN)make list$(RESET)             - Lister les packages disponibles"
+	@echo "  $(CYAN)make list-installed$(RESET)   - Lister les packages installés"
+	@echo ""
+	@echo "$(BOLD)$(GREEN)Autres :$(RESET)"
+	@echo "  $(CYAN)make help$(RESET)             - Afficher cette aide"
+	@echo "  $(CYAN)make check-deps$(RESET)       - Vérifier les dépendances"
+	@echo "  $(CYAN)make clean$(RESET)            - Nettoyer les fichiers temporaires"
+	@echo ""
+	@echo "$(BOLD)$(WHITE)Packages détectés :$(RESET) $(PACKAGES)"
+	@echo ""
+
+# =============================================================================
+# MENU INTERACTIF
+# =============================================================================
+
+.PHONY: menu
+menu:
+	@clear
+	@echo "$(BOLD)$(PURPLE)╔═══════════════════════════════════════════════════════════╗$(RESET)"
+	@echo "$(BOLD)$(PURPLE)║  $(EMOJI_STAR)  Gestion des Dotfiles avec Stow  $(EMOJI_STAR)                 ║$(RESET)"
+	@echo "$(BOLD)$(PURPLE)╚═══════════════════════════════════════════════════════════╝$(RESET)"
+	@echo ""
+	@echo "$(CYAN)1)$(RESET) Installer TOUS les packages"
+	@echo "$(CYAN)2)$(RESET) Installer un package spécifique"
+	@echo "$(CYAN)3)$(RESET) Désinstaller TOUS les packages"
+	@echo "$(CYAN)4)$(RESET) Désinstaller un package spécifique"
+	@echo "$(CYAN)5)$(RESET) Vérifier TOUS les packages"
+	@echo "$(CYAN)6)$(RESET) Lister les packages disponibles"
+	@echo "$(CYAN)7)$(RESET) Lister les packages installés"
+	@echo "$(CYAN)8)$(RESET) Vérifier les dépendances"
+	@echo "$(CYAN)9)$(RESET) Aide"
+	@echo "$(CYAN)0)$(RESET) Quitter"
+	@echo ""
+	@read -p "$(EMOJI_INFO) Choisissez une option (0-9) : " choice; \
+	case $$choice in \
+		1) $(MAKE) all ;; \
+		2) read -p "$(EMOJI_INFO) Nom du package : " pkg; $(MAKE) $$pkg ;; \
+		3) $(MAKE) uninstall ;; \
+		4) read -p "$(EMOJI_INFO) Nom du package : " pkg; $(MAKE) uninstall-$$pkg ;; \
+		5) $(MAKE) verify ;; \
+		6) $(MAKE) list ;; \
+		7) $(MAKE) list-installed ;; \
+		8) $(MAKE) check-deps ;; \
+		9) $(MAKE) help ;; \
+		0) @echo "$(EMOJI_SUCCESS) Au revoir !"; exit 0 ;; \
+		*) @echo "$(EMOJI_ERROR) Option invalide"; sleep 2; $(MAKE) menu ;; \
+	esac
+
+# =============================================================================
+# CIBLE PAR DÉFAUT
+# =============================================================================
+
+.DEFAULT_GOAL := help
