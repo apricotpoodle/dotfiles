@@ -1,11 +1,12 @@
 # ~/.dotfiles/Makefile
 # Gestion des dotfiles avec Stow - Version corrigée (messages make nettoyés)
 
+
 # =============================================================================
 # NETTOYAGE DES MESSAGES MAKE (CORRECTION DU BUG VISUEL)
 # =============================================================================
 # Empêche l'affichage de "make[1]: on quitte le répertoire..."
-MAKEFLAGS += -s
+# MAKEFLAGS += -s
 
 # =============================================================================
 # DÉFINITION DES COULEURS ANSI
@@ -57,6 +58,8 @@ define MENU_HEADER
 @echo ""
 endef
 
+# SHELL := /bin/bash
+
 # =============================================================================
 # CIBLES PHARES
 # =============================================================================
@@ -65,11 +68,11 @@ endef
 
 welcome:
 	$(MENU_HEADER)
-	# @echo ""
-	# @echo "$(BOLD)$(PURPLE)╔═══════════════════════════════════════════════════════════╗$(RESET)"
-	# @echo "$(BOLD)$(PURPLE)║  $(EMOJI_STAR)  Gestion des Dotfiles avec Stow  $(EMOJI_STAR)                   ║$(RESET)"
-	# @echo "$(BOLD)$(PURPLE)╚═══════════════════════════════════════════════════════════╝$(RESET)"
-	# @echo ""
+# @echo ""
+# @echo "$(BOLD)$(PURPLE)╔═══════════════════════════════════════════════════════════╗$(RESET)"
+# @echo "$(BOLD)$(PURPLE)║  $(EMOJI_STAR)  Gestion des Dotfiles avec Stow  $(EMOJI_STAR)                   ║$(RESET)"
+# @echo "$(BOLD)$(PURPLE)╚═══════════════════════════════════════════════════════════╝$(RESET)"
+# @echo ""
 
 # =============================================================================
 # INSTALLATION
@@ -104,11 +107,14 @@ all: welcome
 	echo ""
 
 # Installer un package spécifique
-# $(PACKAGES):
-%:
+# 1. Déclaration propre (SANS le : à la fin)
+.PHONY: $(PACKAGES)
+
+# 2. Règle de motif statique (la plus robuste pour GNU Make)
+$(PACKAGES): %:
 	@echo "$(BOLD)$(GREEN)=== Installation de $@ ===$(RESET)"
 	@if [ -d "$(DOTFILES_DIR)/$@" ]; then \
-		if stow -t $(HOME_DIR) $@ 2>/dev/null; then \
+		if stow -v -t $(HOME_DIR) $@ 2>/dev/null; then \
 			echo "$(EMOJI_SUCCESS) $(GREEN)$@$(RESET) installé avec succès"; \
 		else \
 			echo "$(EMOJI_ERROR) $(RED)$@$(RESET) échec de l'installation"; \
@@ -156,64 +162,69 @@ uninstall-%:
 # VÉRIFICATION (CORRIGÉE - FICHIERS ET RÉPERTOIRES)
 # =============================================================================
 
-.PHONY: verify
+
+# =============================================================================
+# VÉRIFICATION UNIFIÉE (FONCTIONNE POUR TOUS LES CHEMINS)
+# =============================================================================
+
+# Stratégie "Expert" : Compter les composants
 verify: welcome
-	@echo "$(BOLD)$(CYAN)=== Vérification des liens Stow ===$(RESET)"
-	@echo ""
-	@if [ -z "$(PACKAGES)" ]; then \
-		@echo "$(EMOJI_ERROR) $(RED)AUCUN PACKAGE DÉTECTÉ$(RESET)"; \
-		exit 1; \
-	fi
-	@ok=0; warning=0; error=0; \
+	@echo "$(BOLD)$(CYAN)=== Vérification de l'intégrité des packages ===$(RESET)"
+	@ok=0; error=0; \
 	for pkg in $(PACKAGES); do \
-		target="$(HOME_DIR)/.config/$$pkg"; \
-		alt_target="$(HOME_DIR)/.$$pkg"; \
-		if [ -L "$$target" ]; then \
-			link_target=$$(readlink "$$target"); \
-			# Vérifier si le lien pointe vers le dossier package OU un fichier dedans \
-			if [[ "$$link_target" == "$(DOTFILES_DIR)/$$pkg" ]] || \
-			   [[ "$$link_target" == "$(DOTFILES_DIR)/$$pkg/"* ]]; then \
-				echo "$(EMOJI_SUCCESS) $(GREEN)$$pkg$(RESET) : lien valide → $$link_target"; \
-				ok=$$((ok + 1)); \
-			else \
-				@echo "$(EMOJI_WARNING) $(YELLOW)$$pkg$(RESET) : lien existant mais pointe vers $$link_target"; \
-				warning=$$((warning + 1)); \
-			fi; \
-		elif [ -L "$$alt_target" ]; then \
-			link_target=$$(readlink "$$alt_target"); \
-			# Vérifier si le lien pointe vers le dossier package OU un fichier dedans \
-			if [[ "$$link_target" == "$(DOTFILES_DIR)/$$pkg" ]] || \
-			   [[ "$$link_target" == "$(DOTFILES_DIR)/$$pkg/"* ]]; then \
-				echo "$(EMOJI_SUCCESS) $(GREEN)$$pkg$(RESET) : lien valide → $$link_target"; \
-				ok=$$((ok + 1)); \
-			else \
-				echo "$(EMOJI_WARNING) $(YELLOW)$$pkg$(RESET) : lien existant mais pointe vers $$link_target"; \
-				warning=$$((warning + 1)); \
-			fi; \
+		expected=$$(ls -1A $(DOTFILES_DIR)/$$pkg | wc -l); \
+		found_links=0; \
+		# On scanne les dossiers cibles \
+		for search_dir in "$(HOME_DIR)" "$(HOME_DIR)/.config" "$(HOME_DIR)/.local/bin"; do \
+			[ ! -d "$$search_dir" ] && continue; \
+			for link in $$(find "$$search_dir" -maxdepth 2 -type l 2>/dev/null); do \
+				target=$$(readlink "$$link"); \
+				case "$$target" in *".dotfiles/$$pkg"*) \
+					found_links=$$((found_links + 1)) ;; \
+				esac; \
+			done; \
+		done; \
+		if [ "$$found_links" -eq "$$expected" ]; then \
+			echo "$(EMOJI_SUCCESS) $(GREEN)$$pkg$(RESET) : Intégrité totale ($$found_links/$$expected)"; \
+			ok=$$((ok + 1)); \
+		elif [ "$$found_links" -gt 0 ]; then \
+			echo "$(EMOJI_WARNING) $(YELLOW)$$pkg$(RESET) : PARTIEL ($$found_links/$$expected liens trouvés)"; \
+			error=$$((error + 1)); \
 		else \
-			echo "$(EMOJI_ERROR) $(RED)$$pkg$(RESET) : non installé"; \
+			echo "$(EMOJI_ERROR) $(RED)$$pkg$(RESET) : Non installé"; \
 			error=$$((error + 1)); \
 		fi; \
-	done; \
-	echo ""; \
-	echo "$(BOLD)=== Résumé ===$(RESET)"; \
-	echo "$(EMOJI_PACKAGE) Total vérifié : $$((ok + warning + error))"; \
-	echo "$(EMOJI_CHECK) Validés : $$ok"; \
-	echo "$(EMOJI_WARNING) Alertes : $$warning"; \
-	echo "$(EMOJI_CROSS) Erreurs : $$error"; \
-	echo ""
+	done
 
 check-%:
-	@echo "$(BOLD)$(CYAN)=== Vérification de $* ===$(RESET)"
-	@if [ -L "$(HOME_DIR)/.config/$*" ]; then \
-		link=$$(readlink "$(HOME_DIR)/.config/$*"); \
-		echo "$(EMOJI_SUCCESS) $(GREEN)$*$(RESET) : lien valide → $$link"; \
-	elif [ -L "$(HOME_DIR)/.$*" ]; then \
-		link=$$(readlink "$(HOME_DIR)/.$*"); \
-		echo "$(EMOJI_SUCCESS) $(GREEN)$*$(RESET) : lien valide → $$link"; \
+	@echo "$(BOLD)$(CYAN)=== Vérification de l'intégrité de $* ===$(RESET)"
+	@# 1. Calcul du nombre d'éléments attendus dans le dossier source
+	@expected=$$(ls -1A $(DOTFILES_DIR)/$* 2>/dev/null | wc -l); \
+	if [ "$$expected" -eq 0 ]; then \
+		echo "$(EMOJI_ERROR) $(RED)Package $* introuvable dans $(DOTFILES_DIR)$(RESET)"; \
+		exit 1; \
+	fi; \
+	found_links=0; \
+	# 2. Recherche des liens symboliques pointant vers ce package \
+	for search_dir in "$(HOME_DIR)" "$(HOME_DIR)/.config" "$(HOME_DIR)/.local/bin"; do \
+		if [ -d "$$search_dir" ]; then \
+			for link in $$(find "$$search_dir" -maxdepth 2 -type l 2>/dev/null); do \
+				target=$$(readlink "$$link"); \
+				case "$$target" in *".dotfiles/$*"*) \
+					found_links=$$((found_links + 1)) ;; \
+				esac; \
+			done; \
+		fi; \
+	done; \
+	# 3. Rapport d'intégrité \
+	if [ "$$found_links" -eq "$$expected" ]; then \
+		echo "$(EMOJI_SUCCESS) $(GREEN)$*$(RESET) : Intégrité totale ($$found_links/$$expected)"; \
+	elif [ "$$found_links" -gt 0 ]; then \
+		echo "$(EMOJI_WARNING) $(YELLOW)$*$(RESET) : PARTIEL ($$found_links/$$expected liens trouvés)"; \
+		echo "  $(EMOJI_INFO) Relancez 'make $*' pour réparer les liens manquants."; \
 	else \
-		echo "$(EMOJI_ERROR) $(RED)$*$(RESET) : non installé"; \
-	fi
+		echo "$(EMOJI_ERROR) $(RED)$*$(RESET) : Non installé"; \
+	fi	
 
 # =============================================================================
 # LISTAGE
@@ -339,7 +350,7 @@ help: welcome
 	@echo ""
 
 # =============================================================================
-# MENU INTERACTIF (VERSION CORRIGÉE ET ROBUSTE)
+# MENU INTERACTIF (VERSION CORRIGÉE)
 # =============================================================================
 
 .PHONY: menu
@@ -357,43 +368,37 @@ menu:
 	@echo "$(CYAN)9)$(RESET) Aide"
 	@echo "$(CYAN)0)$(RESET) Quitter"
 	@echo ""
-	# @# 1. Nettoyage agressif du tampon d'entrée (stdin)
-	# @# On vide tout ce qui pourrait rester (caractères de contrôle, anciennes touches)
-	# @stty -icanon min 0 time 10 2>/dev/null; \
-	# dd if=/dev/tty bs=1 count=100 2>/dev/null > /dev/null || true; \
-	# stty icanon 2>/dev/null; \
-	# 2. Lecture de l'option avec timeout (évite de bloquer si pas de touche)
-	read -p "$(EMOJI_INFO) Choisissez une option (0-9) : " choice; \
-	\
-	# 3. Traitement de l'option
+	@read -p "$(EMOJI_INFO) Choisissez une option (0-9) : " choice; \
 	case "$$choice" in \
 		1) $(MAKE) all ;; \
-		2) \
-			# Nettoyage avant lecture du nom du package
-			stty -icanon min 0 time 10 2>/dev/null; \
-			dd if=/dev/tty bs=1 count=100 2>/dev/null > /dev/null || true; \
-			stty icanon 2>/dev/null; \
-			read -p "$(EMOJI_INFO) Nom du package : " pkg; \
-			$(MAKE) $$pkg ;; \
-		3) $(MAKE) uninstall; $(MAKE) menu ;; \
-		4) \
-			stty -icanon min 0 time 10 2>/dev/null; \
-			dd if=/dev/tty bs=1 count=100 2>/dev/null > /dev/null || true; \
-			stty icanon 2>/dev/null; \
-			read -p "$(EMOJI_INFO) Nom du package : " pkg; \
-			$(MAKE) uninstall-$$pkg; $(MAKE) menu ;; \
-		5) $(MAKE) verify; $(MAKE) menu ;; \
-		6) $(MAKE) list; $(MAKE) menu ;; \
-		7) $(MAKE) list-installed; $(MAKE) menu ;; \
+		2) read -p "$(EMOJI_INFO) Nom du package : " pkg; $(MAKE) $$pkg ;; \
+		3) $(MAKE) uninstall ;; \
+		4) read -p "$(EMOJI_INFO) Nom du package : " pkg; $(MAKE) uninstall-$$pkg ;; \
+		5) $(MAKE) verify ;; \
+		6) $(MAKE) list ;; \
+		7) $(MAKE) list-installed ;; \
 		8) $(MAKE) check-deps ;; \
-		9) $(MAKE) help; $(MAKE) menu ;; \
+		9) $(MAKE) help ;; \
 		0) echo "$(EMOJI_SUCCESS) Au revoir !"; exit 0 ;; \
-		*) \
-			echo "$(EMOJI_ERROR) Option invalide. Veuillez réessayer."; \
-			sleep 1; \
-			$(MAKE) menu ;; \
+		*) echo "$(EMOJI_ERROR) Option invalide"; sleep 1; $(MAKE) menu ;; \
 	esac
-	]
+
+# =============================================================================
+# GESTION DES IMAGES LATEX (DOCKER)
+# =============================================================================
+
+.PHONY: setup-latex
+setup-latex:
+	@echo "$(BOLD)$(PURPLE)=== Configuration de l'image TeX Live ===$(RESET)"
+	@if [ -f /etc/arch-release ]; then \
+		echo "$(EMOJI_INFO) Machine Arch détectée (Pentium). Utilisation de l'image SMALL."; \
+		docker pull texlive/texlive:small; \
+	else \
+		echo "$(EMOJI_INFO) Machine Debian détectée (XPS). Utilisation de l'image LATEST."; \
+		docker pull texlive/texlive:latest; \
+	fi
+	@echo "$(EMOJI_SUCCESS) Image prête pour vlatex."
+
 # =============================================================================
 # CIBLE PAR DÉFAUT
 # =============================================================================
