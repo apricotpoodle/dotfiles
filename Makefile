@@ -79,32 +79,10 @@ welcome:
 # =============================================================================
 
 .PHONY: all
-all: welcome
-	@echo "$(BOLD)$(GREEN)=== Installation de TOUS les packages ===$(RESET)"
+all: welcome $(PACKAGES) setup-timers
 	@echo ""
-	@if [ -z "$(PACKAGES)" ]; then \
-		echo "$(EMOJI_ERROR) $(RED)AUCUN PACKAGE DÉTECTÉ$(RESET)"; \
-		echo "$(EMOJI_INFO) Vérifiez que des dossiers existent dans $(DOTFILES_DIR)"; \
-		exit 1; \
-	fi
-	@total=0; success=0; failed=0; \
-	for pkg in $(PACKAGES); do \
-		total=$$((total + 1)); \
-		echo "$(EMOJI_INFO) Installation de $$pkg..."; \
-		if stow -t $(HOME_DIR) $$pkg 2>/dev/null; then \
-			echo "$(EMOJI_SUCCESS) $(GREEN)$$pkg$(RESET) installé avec succès"; \
-			success=$$((success + 1)); \
-		else \
-			echo "$(EMOJI_ERROR) $(RED)$$pkg$(RESET) échec de l'installation"; \
-			failed=$$((failed + 1)); \
-		fi; \
-	done; \
-	echo ""; \
-	echo "$(BOLD)=== Résumé ===$(RESET)"; \
-	echo "$(EMOJI_PACKAGE) Total : $$total package(s)"; \
-	echo "$(EMOJI_CHECK) Installés : $$success"; \
-	echo "$(EMOJI_CROSS) Échecs : $$failed"; \
-	echo ""
+	@echo "$(BOLD)$(GREEN)🚀 Tous les packages dotfiles ont été traités.$(RESET)"
+	@echo ""
 
 # Installer un package spécifique
 # 1. Déclaration propre (SANS le : à la fin)
@@ -157,14 +135,6 @@ uninstall-%:
 	else \
 		echo "$(EMOJI_WARNING) $(YELLOW)$*$(RESET) n'était pas installé"; \
 	fi
-
-# =============================================================================
-# VÉRIFICATION UNIFIÉE (CORRECTION DÉFINITIVE DU DOUBLE COMPTAGE)
-# =============================================================================
-
-# =============================================================================
-# VÉRIFICATION UNIFIÉE (CORRECTION DÉFINITIVE DU DOUBLE COMPTAGE)
-# =============================================================================
 
 # =============================================================================
 # VÉRIFICATION UNIFIÉE (RÉSOLUTION DÉFINITIVE "CHOUX VS CAROTTES")
@@ -434,6 +404,10 @@ setup-timers:
 	@systemctl --user enable --now backup-remoteness.timer
 	@echo "$(EMOJI_SUCCESS) Timers activés (Hebdomadaire & Mensuel)."
 
+# Ton bouton "Magique" pour un nouveau PC
+.PHONY: install
+install: check-deps bashrc scripts helix setup-timers
+	@echo "$(BOLD)$(GREEN)🚀 PRA terminé : Système prêt et sauvegardes actives !$(RESET)"
 
 # =============================================================================
 # CIBLE PAR DÉFAUT
