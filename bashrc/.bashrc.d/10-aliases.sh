@@ -8,7 +8,7 @@ alias ...='cd ../..'
 alias grep='grep --color=auto'
 
 # Gestion des paquets.
-alias update='sudo apt update && sudo apt upgrade -y'
+alias update='sudo apt autoremove --purge && sudo apt update && sudo apt upgrade -y && sudo apt autoremove --purge'
 alias install='sudo apt install'
 alias remove='sudo apt remove'
 
