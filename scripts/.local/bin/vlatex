@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# 1. Récupération des chemins (logique précédente)
+for last; do true; done
+FILE_PATH="$last"
+DIR_PATH=$(dirname "$(realpath "$FILE_PATH")")
+FILE_NAME=$(basename "$FILE_PATH")
+ARGS_WITHOUT_FILE=("${@:1:$#-1}")
+
+# 2. Lancement de la compilation
+docker run --rm -i \
+    --user "$(id -u):$(id -g)" \
+    -v "$DIR_PATH:/workdir" \
+    -w /workdir \
+    texlive/texlive:latest \
+    latexmk "${ARGS_WITHOUT_FILE[@]}" "$FILE_NAME"
+
+# 3. Capture du code de sortie de Docker/Latexmk
+STATUS=$?
+
+# 4. Envoi de la notification
+if [ $STATUS -eq 0 ]; then
+    notify-send -i document-print "LaTeX : Succès" "La compilation de $FILE_NAME est terminée." -t 6000
+else
+    notify-send -u critical -i error "LaTeX : Échec" "Erreur lors de la compilation de $FILE_NAME." -t 9000
+fi
+
+exit $STATUS
