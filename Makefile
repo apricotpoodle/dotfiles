@@ -24,6 +24,17 @@ RESET := \033[0m
 # =============================================================================
 # VARIABLES
 # =============================================================================
+
+# Mappage : cmd_NOM := paquet_debian/paquet_arch
+pkg_stow   := stow
+pkg_git    := git
+pkg_borg   := borgbackup/borg
+pkg_docker := docker.io/docker
+pkg_hx     := helix
+
+# Liste des commandes à vérifier
+LIST_DEPS := stow git borg docker hx
+
 DOTFILES_DIR := $(shell pwd)
 HOME_DIR := $(HOME)
 
@@ -33,6 +44,13 @@ PACKAGES := $(shell find . -maxdepth 1 -type d ! -name '.' ! -name '.git' ! -nam
 
 # Liste des exclusions (fichiers et dossiers à ignorer)
 EXCLUDED := Makefile README.md readme.md .git .gitignore install.sh check-deps.sh
+
+# Liste des commandes à vérifier et leurs paquets respectifs (Debian:Arch)
+DEPS := stow:stow git:git borg:borgbackup/borg docker:docker.io/docker hx:helix
+
+# Détection du gestionnaire de paquets et de la commande d'installation
+PKGMGR := $(shell if command -v apt >/dev/null; then echo "apt"; elif command -v pacman >/dev/null; then echo "pacman"; fi)
+INSTALL_CMD := $(if $(filter apt,$(PKGMGR)),sudo apt install -y,sudo pacman -S --noconfirm)
 
 # =============================================================================
 # ÉMOJIS
@@ -68,11 +86,21 @@ endef
 
 welcome:
 	$(MENU_HEADER)
-# @echo ""
-# @echo "$(BOLD)$(PURPLE)╔═══════════════════════════════════════════════════════════╗$(RESET)"
-# @echo "$(BOLD)$(PURPLE)║  $(EMOJI_STAR)  Gestion des Dotfiles avec Stow  $(EMOJI_STAR)                   ║$(RESET)"
-# @echo "$(BOLD)$(PURPLE)╚═══════════════════════════════════════════════════════════╝$(RESET)"
-# @echo ""
+
+
+# =============================================================================
+# POINT ENTRÉE TÂCHES D'ADMINISTRATION
+# =============================================================================
+
+.PHONY: check-sudo
+check-sudo: welcome
+	@echo "$(BOLD)$(YELLOW)=== Vérification des privilèges sudo ===$(RESET)"
+	@if ! sudo -v >/dev/null 2>&1; then \
+		echo "$(EMOJI_ERROR) $(RED)Erreur : Droits sudo requis pour cette action.$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(EMOJI_SUCCESS) $(GREEN)Privilèges validés.$(RESET)"
+	@echo ""
 
 # =============================================================================
 # INSTALLATION
@@ -260,8 +288,6 @@ list-installed: welcome
 # DÉPENDANCES (VERSION OPTIMISÉE)
 # =============================================================================
 
-# Liste des commandes à vérifier et leurs paquets respectifs (Debian:Arch)
-DEPS := stow:stow git:git borg:borgbackup/borg docker:docker.io/docker
 
 .PHONY: check-deps
 check-deps:
@@ -397,17 +423,40 @@ backup:
 	@bash $(HOME_DIR)/.local/bin/backup-borg.sh
 
 .PHONY: setup-timers
-setup-timers:
+setup-timers: check-sudo systemd
 	@echo "$(BOLD)$(PURPLE)=== Activation des automates de sauvegarde ===$(RESET)"
 	@systemctl --user daemon-reload
 	@systemctl --user enable --now backup-borg.timer
 	@systemctl --user enable --now backup-remoteness.timer
 	@echo "$(EMOJI_SUCCESS) Timers activés (Hebdomadaire & Mensuel)."
 
-# Ton bouton "Magique" pour un nouveau PC
 .PHONY: install
-install: check-deps bashrc scripts helix setup-timers
-	@echo "$(BOLD)$(GREEN)🚀 PRA terminé : Système prêt et sauvegardes actives !$(RESET)"
+install: install-deps all setup-timers setup-latex
+	@echo "$(BOLD)$(GREEN)🌟 PRA validé : Machine $(shell hostname) entièrement configurée !$(RESET)"
+
+# =============================================================================
+# INSTALLATION DES DÉPENDANCES
+# =============================================================================
+# On transforme la liste 'stow git...' en 'dep-stow dep-git...'
+.PHONY: install-deps
+
+install-deps: $(addprefix dep-, $(LIST_DEPS))
+	@echo "$(EMOJI_SUCCESS) Toutes les dépendances système sont prêtes."
+
+# Règle générique pour installer une dépendance
+# $* contient le nom de la commande (ex: borg) 
+dep-%: check-sudo
+	@if ! command -v $* >/dev/null 2>&1; then \
+		pkgs="$(pkg_$*)"; \
+		deb=$${pkgs%/*}; \
+		arch=$${pkgs#*/}; \
+		target=$$( [ "$(PKGMGR)" = "apt" ] && echo "$$deb" || echo "$$arch" ); \
+		echo "$(EMOJI_INFO) Installation système de : $$target..."; \
+		$(INSTALL_CMD) $$target; \
+	else \
+		echo "$(EMOJI_SUCCESS) $(GREEN)$*$(RESET) est déjà présent."; \
+	fi
+
 
 # =============================================================================
 # CIBLE PAR DÉFAUT
