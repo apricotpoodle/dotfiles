@@ -285,34 +285,36 @@ list-installed: welcome
 	fi
 	@echo ""
 
+
 # =============================================================================
-# DÉPENDANCES
+# DÉPENDANCES (VERSION OPTIMISÉE)
 # =============================================================================
+
+# Liste des commandes à vérifier et leurs paquets respectifs (Debian:Arch)
+DEPS := stow:stow git:git borg:borgbackup/borg docker:docker.io/docker
 
 .PHONY: check-deps
 check-deps:
 	@echo "$(BOLD)$(PURPLE)=== Vérification des dépendances ===$(RESET)"
 	@echo ""
-	@echo "$(EMOJI_INFO) Vérification de stow..."; \
-	if command -v stow >/dev/null 2>&1; then \
-		version=$$(stow --version 2>&1 | head -1); \
-		echo "$(EMOJI_SUCCESS) $(GREEN)stow$(RESET) : installé ($$version)"; \
-	else \
-		echo "$(EMOJI_ERROR) $(RED)stow$(RESET) : NON installé"; \
-		echo "  → sudo apt install stow (Debian)"; \
-		echo "  → sudo pacman -S stow (Arch)"; \
-	fi; \
-	echo ""; \
-	echo "$(EMOJI_INFO) Vérification de git..."; \
-	if command -v git >/dev/null 2>&1; then \
-		version=$$(git --version | head -1); \
-		echo "$(EMOJI_SUCCESS) $(GREEN)git$(RESET) : installé ($$version)"; \
-	else \
-		echo "$(EMOJI_ERROR) $(RED)git$(RESET) : NON installé"; \
-		echo "  → sudo apt install git (Debian)"; \
-		echo "  → sudo pacman -S git (Arch)"; \
-	fi; \
-	echo ""
+	@for item in $(DEPS); do \
+		cmd=$${item%%:*}; \
+		pkgs=$${item#*:}; \
+		deb=$${pkgs%/*}; \
+		arch=$${pkgs#*/}; \
+		[ "$$deb" = "$$pkgs" ] && arch=$$deb; \
+		\
+		echo "$(EMOJI_INFO) Vérification de $$cmd..."; \
+		if command -v $$cmd >/dev/null 2>&1; then \
+			version=$$($$cmd --version 2>&1 | head -n 1); \
+			echo "$(EMOJI_SUCCESS) $(GREEN)$$cmd$(RESET) : installé ($$version)"; \
+		else \
+			echo "$(EMOJI_ERROR) $(RED)$$cmd$(RESET) : NON installé"; \
+			echo "  → sudo apt install $$deb (Debian)"; \
+			echo "  → sudo pacman -S $$arch (Arch)"; \
+		fi; \
+		echo ""; \
+	done
 
 # =============================================================================
 # NETTOYAGE
@@ -412,6 +414,26 @@ setup-latex:
 		docker pull texlive/texlive:latest; \
 	fi
 	@echo "$(EMOJI_SUCCESS) Image prête pour vlatex."
+
+
+
+# =============================================================================
+# GESTION DE LA SAUVEGARDE (Borg & Systemd)
+# =============================================================================
+
+.PHONY: backup
+backup:
+	@echo "$(BOLD)$(BLUE)=== Lancement manuel de la sauvegarde ===$(RESET)"
+	@bash $(HOME_DIR)/.local/bin/backup-borg.sh
+
+.PHONY: setup-timers
+setup-timers:
+	@echo "$(BOLD)$(PURPLE)=== Activation des automates de sauvegarde ===$(RESET)"
+	@systemctl --user daemon-reload
+	@systemctl --user enable --now backup-borg.timer
+	@systemctl --user enable --now backup-remoteness.timer
+	@echo "$(EMOJI_SUCCESS) Timers activés (Hebdomadaire & Mensuel)."
+
 
 # =============================================================================
 # CIBLE PAR DÉFAUT
