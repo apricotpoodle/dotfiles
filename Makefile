@@ -226,6 +226,15 @@ check-%:
 		echo "$(EMOJI_ERROR) $(RED)$*$(RESET) : Non installé"; \
 	fi	
 
+.PHONY: check-sync
+check-sync:
+	@echo "$(BOLD)$(PURPLE)=== État de la synchronisation ===$(RESET)"
+	@if systemctl --user is-active --quiet syncthing; then \
+		echo "$(EMOJI_SUCCESS) $(GREEN)Syncthing est actif.$(RESET)"; \
+	else \
+		echo "$(EMOJI_ERROR) $(RED)Syncthing est arrêté. Lancez 'systemctl --user start syncthing'$(RESET)"; \
+	fi
+
 # =============================================================================
 # LISTAGE
 # =============================================================================
