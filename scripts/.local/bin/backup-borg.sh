@@ -1,20 +1,58 @@
 #!/bin/bash
-# Script de sauvegarde intelligente avec Borg
-MOUNT_POINT="/media/fbouillerot/MyPassport" # À adapter selon le nom de ton disque
-REPO="$MOUNT_POINT/backup-borg"
-BACKUP_NAME="::$(date +%Y-%m-%d_%H:%M)"
 
-if [ -d "$MOUNT_POINT" ]; then
-    notify-send "Sauvegarde" "Disque détecté. Lancement de BorgBackup..." -i drive-harddisk
-    
-    # Exécution de la sauvegarde (on exclut les fichiers temporaires LaTeX)
-    borg create --stats \
-        --exclude '*/.aux' \
-        --exclude '*/.log' \
-        "$REPO$BACKUP_NAME" \
-        ~/latex ~/notes
-        
-    notify-send "Sauvegarde Terminée" "Vos données LaTeX et Notes sont sécurisées." -i checkbox-checked-symbolic
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+MOUNT_POINT="/media/fbouillerot/MyPassport"
+REPO="$MOUNT_POINT/backup-borg"
+export BORG_PASSPHRASE=$(cat ~/.borg_pass)
+ARCHIVE="XPS-$(date +%Y-%m-%d_%H%M)"
+
+# Liste des dossiers à sauvegarder (uniquement s'ils existent)
+SOURCES=""
+[ -d "$HOME/latex" ] && SOURCES="$SOURCES $HOME/latex"
+[ -d "$HOME/Documents/PKM" ] && SOURCES="$SOURCES $HOME/Documents/PKM"
+
+# =============================================================================
+# VÉRIFICATION ET EXÉCUTION
+# =============================================================================
+
+if [ ! -d "$MOUNT_POINT" ]; then
+    notify-send -u critical "⚠️ Sauvegarde impossible" "Le disque MyPassport n'est pas détecté." -i warning
+    exit 1
+fi
+
+if [ -z "$SOURCES" ]; then
+    notify-send "Sauvegarde" "Aucune source (latex/notes) trouvée. Rien à faire."
+    exit 0
+fi
+
+notify-send "Sauvegarde Borg" "Sécurisation en cours..." -i drive-harddisk
+
+# 2. Création de la sauvegarde
+borg create --stats \
+    --compression zstd,3 \
+    --exclude '*/.aux' \
+    --exclude '*/.log' \
+    --exclude '*/.fls' \
+    --exclude '*/.fdb_latexmk' \
+    --exclude '*/.stversions' \
+    "$REPO::$ARCHIVE" \
+    $SOURCES
+
+# 3. Nettoyage (Syntaxe corrigée pour éviter le Warning)
+# On remplace --prefix par -a (ou --glob-archives)
+borg prune -v --list "$REPO" -a 'XPS-*' \
+    --keep-daily=7 --keep-weekly=4 --keep-monthly=6
+
+# 4. Compactage
+borg compact "$REPO"
+
+# =============================================================================
+# NOTIFICATION FINALE
+# =============================================================================
+if [ $? -eq 0 ]; then
+    notify-send "Sauvegarde Terminée ✅" "Dépôt mis à jour sur MyPassport." -i checkbox-checked-symbolic
 else
-    notify-send -u critical "⚠️ Sauvegarde Échouée" "Veuillez brancher votre disque dur externe." -i warning
+    notify-send -u critical "❌ Erreur Sauvegarde" "Vérifiez les logs de Borg." -i error
 fi

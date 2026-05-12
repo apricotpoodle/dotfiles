@@ -1,0 +1,6 @@
+[Unit]
+Description=Rappel mensuel pour la sauvegarde hors-site
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/notify-send -u critical "⚠️ PRA : Rappel Mensuel" "Pensez à mettre à jour votre sauvegarde sur le disque distant (vieux PC/Cloud)."

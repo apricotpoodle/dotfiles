@@ -9,3 +9,6 @@ helix/.config/helix/helix.log
 
 *.zip
 *.tar.gz
+
+*.borg_pass
+.borg_pass
