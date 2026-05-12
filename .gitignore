@@ -1,2 +1,11 @@
+# ~/.dotfiles/.gitignore
+
+# Ignorer les dossiers de travail locaux de Helix
+helix/.config/helix/runtime/
+helix/.config/helix/grammars/
+
+# On peut aussi ignorer d'éventuels logs de Helix dans le repo
+helix/.config/helix/helix.log
+
 *.zip
 *.tar.gz

@@ -1,0 +1,213 @@
+# --- Configuration pour JavaScript & TypeScript ---
+
+[[language]]
+name = "javascript"
+language-servers = [ "typescript-language-server" ]
+# formatter = { command = "prettier", args = ["--stdin-filepath", "%_"] }
+auto-format = true
+
+[language.formatter]
+command = "npx"
+args = ["prettier", "--stdin-filepath", "dummy.php"]
+
+[[language]]
+name = "jsx"
+language-servers = [ "typescript-language-server" ]
+formatter = { command = "prettier", args = ["--stdin-filepath", "%_"] }
+auto-format = true
+
+[[language]]
+name = "typescript"
+language-servers = [ "typescript-language-server" ]
+formatter = { command = "prettier", args = ["--stdin-filepath", "%_"] }
+auto-format = true
+
+[[language]]
+name = "tsx"
+language-servers = [ "typescript-language-server" ]
+formatter = { command = "prettier", args = ["--stdin-filepath", "%_"] }
+auto-format = true
+
+[[language]]
+name = "php"
+scope = "source.php"
+injection-regex = "php"
+file-types = ["php", "inc", "php4", "php5", "phtml", "ctp"]
+shebangs = ["php"]
+roots = ["composer.json", "index.php"]
+comment-token = "//"
+# language-servers = [ "phpactor" ]
+# language-servers = ["intelephense", "phpactor" ]
+language-servers = ["intelephense" ]
+indent = { tab-width = 4, unit = "    " }
+auto-format = true
+
+[[grammar]]
+name = "php"
+source = { git = "https://github.com/tree-sitter/tree-sitter-php", rev = "f860e598194f4a71747f91789bf536b393ad4a56" }
+
+
+# # Configuration pour le langage PHP
+# [[language]]
+# name = "php"
+# scope = "source.php"
+# file-types = ["php", "inc", "phtml", "ctp"]
+# roots = ["composer.json", ".git"]
+# language-servers = [ "intelephense", "phpactor" ]
+# indent = { tab-width = 4, unit = "    " }
+
+# On définit Prettier comme formateur.
+# Il sera utilisé automatiquement grâce à "auto-format = true" dans votre config.toml
+# [language.formatter]
+# command = "prettier"
+# args = ["--stdin-filepath", "dummy.php"]
+[language.formatter]
+command = "npx"
+args = ["prettier", "--stdin-filepath", "dummy.php"]
+
+# --- Définition du serveur de langage (pour l'autocomplétion, etc.) ---
+[language-server.intelephense]
+command = "intelephense"
+args = ["--stdio"]
+
+
+
+# [language-server.phpactor]
+# command = "phpactor"
+# args = ["language-server"]
+
+# --- Configuration pour LaTeX ---
+
+[language-server.texlab]
+command = "texlab"
+# args = "-vvvv"  # Active le mode très verbeux
+
+# Configuration pour la fonctionnalité de compilation de texlab
+# [language-server.texlab.config.texlab.build]
+# onSave = true
+# # On appelle notre script wrapper. C'est beaucoup plus propre et fiable.
+# # Assurez-vous que le chemin est correct (utilisez le chemin absolu).
+# executable = "/home/fbouillerot/compile-latex.sh" # <-- Adaptez avec votre nom d'utilisateur
+# # On passe juste le nom du fichier (%f) comme argument au script.
+# args = ["%f"]
+# ....
+# # --- Configuration pour LaTeX (version avecmoteur pdfLatex) ---
+# [language-server.texlab.config.texlab.build]
+# onSave = true
+# # On demande à texlab d'exécuter un shell bash
+# executable = "bash"
+# # On lui passe l'argument '-c' pour qu'il exécute la chaîne de commande qui suit.
+# # La chaîne entière est entre guillemets doubles, et les guillemets internes sont échappés avec \".
+# args = [
+#     "-c",
+#     "cd \"$(dirname \"%f\")\" && docker run --rm -v \"$(pwd):/workdir\" texlive/texlive:latest latexmk -pdf -interaction=nonstopmode \"$(basename \"%f\")\""
+# ]
+
+# # --- Configuration pour LaTeX (version avec moteur LuaLaTeX) ---
+# [language-server.texlab.config.texlab.build]
+# onSave = true
+# # On demande à texlab d'exécuter un shell bash
+# executable = "bash"
+# # On lui passe l'argument '-c' pour qu'il exécute la chaîne de commande qui suit.
+# # La seule modification est ici : "-pdf" a été remplacé par "-lualatex".
+# args = [
+#     "-c",
+#     "cd \"$(dirname \"%f\")\" && docker run --rm -v \"$(pwd):/workdir\" texlive/texlive:latest latexmk -lualatex -interaction=nonstopmode \"$(basename \"%f\")\""
+# ]
+
+# --- Configuration pour LaTeX (utilise le script vlatex universel) ---
+[language-server.texlab.config.texlab.build]
+onSave = true
+executable = "vlatex"
+# Vous passez ici le moteur souhaité (-lualatex ou -pdf) et le fichier
+args = ["-lualatex", "-interaction=nonstopmode", "%f"]
+
+# Configuration pour le linter 'chktex'.
+[language-server.texlab.config.texlab.chktex]
+onEdit = true
+# On passe l'argument "-n 12" à chktex pour désactiver l'avertissement n°12.
+# correspondant à la détection d'espace avant les doubles ponctuations
+additionalArgs = ["-n", "12"]
+
+# Association du langage LaTeX avec le serveur texlab.
+[[language]]
+name = "latex"
+scope = "text.tex.latex"
+file-types = ["tex", "sty", "cls"]
+comment-token = "%"
+language-servers = ["texlab"]
+
+# --- Configuration pour Python (Pyright + Ruff) ---
+
+[[language]]
+name = "python"
+scope = "source.python"
+file-types = ["py", "pyw", "pyi"] # .pyi est pour les "stubs" de type
+comment-token = "#"
+# Hélix cherchera ces fichiers pour identifier la racine d'un projet Python
+roots = ["pyproject.toml", "setup.py", "requirements.txt", "Pipfile", "poetry.lock", ".git"]
+
+# On active les DEUX serveurs de langage.
+# Pyright pour l'analyse de type, l'autocomplétion, etc.
+# Ruff pour le linting (diagnostics)
+language-servers = ["pyright", "ruff"]
+
+# On active le formatage automatique (doit être true dans config.toml)
+auto-format = true
+
+# --- Configuration du Formateur (Ruff) ---
+# On utilise Ruff pour formater le code au lieu de "black" ou "yapf".
+[language.formatter]
+command = "ruff"
+# "%_" représente le fichier en cours
+args = ["format", "--stdin-filepath", "%_"]
+
+# -----------------------------------------------------
+# Définition du Language Server (Superhtml)
+# -----------------------------------------------------
+[language-server.superhtml]
+command = "superhtml"
+args = ["lsp"]
+
+# -----------------------------------------------------
+# Configuration du langage HTML
+# -----------------------------------------------------
+[[language]]
+name = "html"
+roots = ["index.html", "package.json"]
+# On remplace le serveur VS Code par Superhtml
+language-servers = [ "superhtml" ]
+
+# Note : Superhtml gère aussi le formatage, mais Prettier reste
+# disponible si vous l'avez installé autrement.
+# Pour utiliser le formatage natif de Superhtml :
+formatter = { command = "superhtml", args = ["fmt", "-"] }
+auto-format = true
+
+
+# =================================================
+#  Configuration Jinja2 (HTML Templates)
+# =================================================
+
+[language-server.jinja-lsp]
+command = "jinja-lsp-linux-x64"
+
+[[language]]
+name = "jinja"
+scope = "source.jinja"
+injection-regex = "jinja"
+# Astuce : On associe ce langage aux fichiers .html qui sont des templates.
+# Si vos fichiers ont tous un nom spécifique (ex: tpl_*.html), utilisez "glob".
+# Sinon, ajoutez simplement "html" à la liste, mais Helix devra parfois deviner.
+file-types = ["jinja", "j2", { glob = "tpl_*.html" }] 
+roots = ["index.html", ".git"]
+# language-servers = [ "jinja-lsp" ]
+
+# Pour la coloration syntaxique, on s'assure que Tree-sitter est actif
+[language.auto-pairs]
+'(' = ')'
+'{' = '}'
+'[' = ']'
+'"' = '"'
+"'" = "'"
+"%" = "%"  # Ajout important pour taper {% rapidement

@@ -1,0 +1,75 @@
+theme = "dark_plus"
+
+[editor]
+line-number = "relative"
+cursorline = true
+cursorcolumn = true
+gutters = ["diagnostics","line-numbers","diff"]
+auto-completion = true
+path-completion = true
+auto-format = true
+preview-completion-insert = true
+completion-replace = true
+end-of-line-diagnostics = "hint"
+rulers = [80,120]
+bufferline = "always"
+color-modes = true
+
+[editor.statusline]
+left = ["mode", "file-name", "file-modification-indicator","spinner","read-only-indicator","version-control"]
+# center = ["separator","file-name","separator"]
+right = ["diagnostics","workspace-diagnostics","selections","primary-selection-length","position","position-percentage","file-encoding","file-line-ending","file-encoding","file-type"]
+
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+select = "underline"
+
+[editor.file-picker]
+hidden = false
+
+# [editor.whitespace]
+# render = "all"
+
+[editor.whitespace.render]
+space = "all"
+
+[editor.whitespace.characters]
+space = "·"
+nbsp = "⍽"
+nnbsp = "␣"
+tab = "→"
+newline = "⏎"
+tabpad = "·" #Tabs will look like "→···" depending on tab width.
+
+[editor.inline-diagnostics] 
+cursor-line = "hint" # show warnings and errors on the cursorline inline
+
+[keys.insert]
+C-s = ["normal_mode",":w"]
+[keys.insert.j]
+k = "normal_mode" # Maps `jk` to exit insert mode
+[keys.normal]
+C-s= ":w"
+[keys.normal.","]
+"," = "keep_primary_selection"
+c = [ 
+    "toggle_line_comments",
+    "goto_line_end",
+    ':append-output echo " // Comment by "',
+    ":append-output whoami",
+    ':append-output echo " : "',
+    ":append-output date +'%%Y-%%m-%%d'"
+    ]
+
+s = "commit_undo_checkpoint"
+# w = ":w"
+
+# # -- Minor mode buffers management
+[keys.normal.",".b]
+c = ":buffer-close"
+C = ":buffer-close!"
+o = ":buffer-close-others"
+O = ":buffer-close-others!"
+a = ":buffer-close-all"
+A = ":buffer-close-all!"
