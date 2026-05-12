@@ -26,14 +26,22 @@ RESET := \033[0m
 # =============================================================================
 
 # Mappage : cmd_NOM := paquet_debian/paquet_arch
-pkg_stow   := stow
-pkg_git    := git
-pkg_borg   := borgbackup/borg
-pkg_docker := docker.io/docker
-pkg_hx     := helix
+pkg_stow         := stow
+pkg_git          := git
+pkg_borg         := borgbackup/borg
+pkg_docker       := docker.io/docker
+pkg_hx           := helix
+pkg_texlab       := texlab
+pkg_pyright      := pyright
+pkg_ruff         := ruff
+pkg_intelephense := intelephense
+pkg_superhtml    := superhtml
+pkg_zathura      := zathura
+
 
 # Liste des commandes à vérifier
-LIST_DEPS := stow git borg docker hx
+# LIST_DEPS := stow git borg docker hx zathura texlab pyright ruff intelephense superhtml
+LIST_DEPS := stow git borg docker hx zathura texlab pyright ruff superhtml
 
 DOTFILES_DIR := $(shell pwd)
 HOME_DIR := $(HOME)
