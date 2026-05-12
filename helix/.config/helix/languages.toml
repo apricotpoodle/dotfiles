@@ -80,40 +80,6 @@ args = ["--stdio"]
 
 [language-server.texlab]
 command = "texlab"
-# args = "-vvvv"  # Active le mode très verbeux
-
-# Configuration pour la fonctionnalité de compilation de texlab
-# [language-server.texlab.config.texlab.build]
-# onSave = true
-# # On appelle notre script wrapper. C'est beaucoup plus propre et fiable.
-# # Assurez-vous que le chemin est correct (utilisez le chemin absolu).
-# executable = "/home/fbouillerot/compile-latex.sh" # <-- Adaptez avec votre nom d'utilisateur
-# # On passe juste le nom du fichier (%f) comme argument au script.
-# args = ["%f"]
-# ....
-# # --- Configuration pour LaTeX (version avecmoteur pdfLatex) ---
-# [language-server.texlab.config.texlab.build]
-# onSave = true
-# # On demande à texlab d'exécuter un shell bash
-# executable = "bash"
-# # On lui passe l'argument '-c' pour qu'il exécute la chaîne de commande qui suit.
-# # La chaîne entière est entre guillemets doubles, et les guillemets internes sont échappés avec \".
-# args = [
-#     "-c",
-#     "cd \"$(dirname \"%f\")\" && docker run --rm -v \"$(pwd):/workdir\" texlive/texlive:latest latexmk -pdf -interaction=nonstopmode \"$(basename \"%f\")\""
-# ]
-
-# # --- Configuration pour LaTeX (version avec moteur LuaLaTeX) ---
-# [language-server.texlab.config.texlab.build]
-# onSave = true
-# # On demande à texlab d'exécuter un shell bash
-# executable = "bash"
-# # On lui passe l'argument '-c' pour qu'il exécute la chaîne de commande qui suit.
-# # La seule modification est ici : "-pdf" a été remplacé par "-lualatex".
-# args = [
-#     "-c",
-#     "cd \"$(dirname \"%f\")\" && docker run --rm -v \"$(pwd):/workdir\" texlive/texlive:latest latexmk -lualatex -interaction=nonstopmode \"$(basename \"%f\")\""
-# ]
 
 # --- Configuration pour LaTeX (utilise le script vlatex universel) ---
 [language-server.texlab.config.texlab.build]
@@ -121,6 +87,11 @@ onSave = true
 executable = "vlatex"
 # Vous passez ici le moteur souhaité (-lualatex ou -pdf) et le fichier
 args = ["-lualatex", "-interaction=nonstopmode", "%f"]
+
+[language-server.texlab.config.texlab.forwardSearch]
+executable = "zathura"
+# %l est la ligne, %f le fichier source, %p le PDF
+args = ["--synctex-forward", "%l:1:%f", "%p"]
 
 # Configuration pour le linter 'chktex'.
 [language-server.texlab.config.texlab.chktex]
@@ -136,6 +107,9 @@ scope = "text.tex.latex"
 file-types = ["tex", "sty", "cls"]
 comment-token = "%"
 language-servers = ["texlab"]
+roots = [".git", ".latexmkrc", "main.tex"]
+indent = { tab-width = 2, unit = "  " }
+auto-format = true
 
 # --- Configuration pour Python (Pyright + Ruff) ---
 

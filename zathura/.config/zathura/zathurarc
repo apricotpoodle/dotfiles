@@ -1,4 +1,21 @@
+# --- Configuration Zathura ---
+
+# Utiliser le presse-papier système pour les sélections
 set selection-clipboard clipboard
+
+# Comportement de défilement doux
 set scroll-step 50
-set statusbar-h-padding 0
-set statusbar-v-padding 0
+
+# Interface ultra-minimaliste (pas de barres)
+set guioptions ""
+
+# Recherche Synctex (Indispensable pour Helix)
+# Permet de cliquer sur le PDF pour revenir à la ligne dans Helix
+set synctex true
+set synctex-editor-command "hx %f:%l"
+
+# --- Couleurs (Optionnel : Thème sombre pour les yeux) ---
+set recolor "true"
+set recolor-keephue "true"
+set recolor-darkcolor "#DCDCCC"
+set recolor-lightcolor "#1F1F1F"
