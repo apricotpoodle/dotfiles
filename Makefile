@@ -159,36 +159,44 @@ uninstall-%:
 	fi
 
 # =============================================================================
-# VÉRIFICATION (CORRIGÉE - FICHIERS ET RÉPERTOIRES)
+# VÉRIFICATION UNIFIÉE (CORRECTION DÉFINITIVE DU DOUBLE COMPTAGE)
 # =============================================================================
 
+# =============================================================================
+# VÉRIFICATION UNIFIÉE (CORRECTION DÉFINITIVE DU DOUBLE COMPTAGE)
+# =============================================================================
 
 # =============================================================================
-# VÉRIFICATION UNIFIÉE (FONCTIONNE POUR TOUS LES CHEMINS)
+# VÉRIFICATION UNIFIÉE (RÉSOLUTION DÉFINITIVE "CHOUX VS CAROTTES")
 # =============================================================================
 
-# Stratégie "Expert" : Compter les composants
 verify: welcome
 	@echo "$(BOLD)$(CYAN)=== Vérification de l'intégrité des packages ===$(RESET)"
 	@ok=0; error=0; \
 	for pkg in $(PACKAGES); do \
-		expected=$$(ls -1A $(DOTFILES_DIR)/$$pkg | wc -l); \
+		# 1. On compte les fichiers réels (carottes) dans le package \
+		expected=$$(find $(DOTFILES_DIR)/$$pkg -type f | wc -l); \
 		found_links=0; \
-		# On scanne les dossiers cibles \
-		for search_dir in "$(HOME_DIR)" "$(HOME_DIR)/.config" "$(HOME_DIR)/.local/bin"; do \
-			[ ! -d "$$search_dir" ] && continue; \
-			for link in $$(find "$$search_dir" -maxdepth 2 -type l 2>/dev/null); do \
-				target=$$(readlink "$$link"); \
-				case "$$target" in *".dotfiles/$$pkg"*) \
-					found_links=$$((found_links + 1)) ;; \
-				esac; \
+		# 2. Pour chaque fichier, on vérifie sa présence dans le HOME (choux) \
+		for f in $$(find $(DOTFILES_DIR)/$$pkg -type f); do \
+			rel_path=$${f#$(DOTFILES_DIR)/$$pkg/}; \
+			target="$(HOME_DIR)/$$rel_path"; \
+			# On vérifie si le fichier est un lien OU si l'un de ses parents est un lien \
+			# (Cas où Stow lie le dossier entier comme pour 'scripts' ou 'helix') \
+			check_path="$$target"; \
+			while [ "$$check_path" != "$(HOME_DIR)" ] && [ "$$check_path" != "/" ]; do \
+				if [ -L "$$check_path" ]; then \
+					t=$$(readlink "$$check_path"); \
+					case "$$t" in *".dotfiles/$$pkg"*) found_links=$$((found_links + 1)); break ;; esac; \
+				fi; \
+				check_path=$$(dirname "$$check_path"); \
 			done; \
 		done; \
 		if [ "$$found_links" -eq "$$expected" ]; then \
 			echo "$(EMOJI_SUCCESS) $(GREEN)$$pkg$(RESET) : Intégrité totale ($$found_links/$$expected)"; \
 			ok=$$((ok + 1)); \
 		elif [ "$$found_links" -gt 0 ]; then \
-			echo "$(EMOJI_WARNING) $(YELLOW)$$pkg$(RESET) : PARTIEL ($$found_links/$$expected liens trouvés)"; \
+			echo "$(EMOJI_WARNING) $(YELLOW)$$pkg$(RESET) : PARTIEL ($$found_links/$$expected trouvé(s))"; \
 			error=$$((error + 1)); \
 		else \
 			echo "$(EMOJI_ERROR) $(RED)$$pkg$(RESET) : Non installé"; \
@@ -198,33 +206,30 @@ verify: welcome
 
 check-%:
 	@echo "$(BOLD)$(CYAN)=== Vérification de l'intégrité de $* ===$(RESET)"
-	@# 1. Calcul du nombre d'éléments attendus dans le dossier source
-	@expected=$$(ls -1A $(DOTFILES_DIR)/$* 2>/dev/null | wc -l); \
+	@expected=$$(find $(DOTFILES_DIR)/$* -type f 2>/dev/null | wc -l); \
 	if [ "$$expected" -eq 0 ]; then \
-		echo "$(EMOJI_ERROR) $(RED)Package $* introuvable dans $(DOTFILES_DIR)$(RESET)"; \
-		exit 1; \
+		echo "$(EMOJI_ERROR) $(RED)Package $* introuvable$(RESET)"; exit 1; \
 	fi; \
 	found_links=0; \
-	# 2. Recherche des liens symboliques pointant vers ce package \
-	for search_dir in "$(HOME_DIR)" "$(HOME_DIR)/.config" "$(HOME_DIR)/.local/bin"; do \
-		if [ -d "$$search_dir" ]; then \
-			for link in $$(find "$$search_dir" -maxdepth 2 -type l 2>/dev/null); do \
-				target=$$(readlink "$$link"); \
-				case "$$target" in *".dotfiles/$*"*) \
-					found_links=$$((found_links + 1)) ;; \
-				esac; \
-			done; \
-		fi; \
+	for f in $$(find $(DOTFILES_DIR)/$* -type f); do \
+		rel_path=$${f#$(DOTFILES_DIR)/$*/}; \
+		target="$(HOME_DIR)/$$rel_path"; \
+		check_path="$$target"; \
+		while [ "$$check_path" != "$(HOME_DIR)" ] && [ "$$check_path" != "/" ]; do \
+			if [ -L "$$check_path" ]; then \
+				t=$$(readlink "$$check_path"); \
+				case "$$t" in *".dotfiles/$*"*) found_links=$$((found_links + 1)); break ;; esac; \
+			fi; \
+			check_path=$$(dirname "$$check_path"); \
+		done; \
 	done; \
-	# 3. Rapport d'intégrité \
 	if [ "$$found_links" -eq "$$expected" ]; then \
 		echo "$(EMOJI_SUCCESS) $(GREEN)$*$(RESET) : Intégrité totale ($$found_links/$$expected)"; \
 	elif [ "$$found_links" -gt 0 ]; then \
-		echo "$(EMOJI_WARNING) $(YELLOW)$*$(RESET) : PARTIEL ($$found_links/$$expected liens trouvés)"; \
-		echo "  $(EMOJI_INFO) Relancez 'make $*' pour réparer les liens manquants."; \
+		echo "$(EMOJI_WARNING) $(YELLOW)$*$(RESET) : PARTIEL ($$found_links/$$expected trouvé(s))"; \
 	else \
 		echo "$(EMOJI_ERROR) $(RED)$*$(RESET) : Non installé"; \
-	fi	
+	fi
 
 .PHONY: check-sync
 check-sync:
