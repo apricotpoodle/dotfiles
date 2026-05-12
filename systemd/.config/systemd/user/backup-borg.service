@@ -1,0 +1,6 @@
+[Unit]
+Description=Exécution de la sauvegarde Borg hebdomadaire
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/backup-borg.sh

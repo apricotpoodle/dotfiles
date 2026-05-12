@@ -1,0 +1,9 @@
+[Unit]
+Description=Rappel mensuel pour la sauvegarde hors-site
+
+[Timer]
+OnCalendar=monthly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
