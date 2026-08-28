@@ -1,0 +1,77 @@
+#!/bin/bash
+# Description: Automatise le GitHub Flow (Push, PR, Merge conditionnel, Nettoyage)
+
+# ==============================================================================
+# Script : finish_feature.sh
+# Description : Automatise le GitHub Flow (Push, PR, Merge conditionnel, Nettoyage)
+# Usage : ./bin/finish_feature.sh [-m "Titre de la PR"] [--auto-merge]
+# ==============================================================================
+
+# Arrêter le script si une commande échoue
+set -e
+
+# --- 1. Parsing des paramètres ---
+TITLE=""
+AUTO_MERGE=0
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -t|--title) TITLE="$2"; shift ;;
+        --auto-merge) AUTO_MERGE=1 ;;
+        *) echo "Paramètre inconnu: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+# --- 2. Vérifications de sécurité ---
+CURRENT_BRANCH=$(git branch --show-current)
+if [ "$CURRENT_BRANCH" == "main" ]; then
+    echo "❌ Erreur : Vous êtes déjà sur la branche 'main'."
+    exit 1
+fi
+
+if ! command -v gh &> /dev/null; then
+    echo "❌ Erreur : GitHub CLI (gh) n'est pas installé."
+    exit 1
+fi
+
+if ! git diff-index --quiet HEAD --; then
+    echo "❌ Erreur : Vous avez des modifications non commitées. Utilisez Lazygit d'abord."
+    exit 1
+fi
+
+echo "🚀 Début du flux de clôture pour la branche : $CURRENT_BRANCH"
+
+# --- 3. Pousser la branche ---
+echo "📦 Push de la branche vers origin..."
+git push -u origin "$CURRENT_BRANCH"
+
+# --- 4. Création de la Pull Request ---
+echo "📝 Création de la Pull Request..."
+if [ -z "$TITLE" ]; then
+    # Ouvre l'éditeur par défaut (nano/vim) si pas de titre fourni
+    gh pr create --fill
+else
+    # Crée la PR avec le titre fourni et un corps vide (ou un template)
+    gh pr create --title "$TITLE" --body "PR générée automatiquement via CLI."
+fi
+
+# --- 5. Fusion (Optionnelle) ---
+if [ $AUTO_MERGE -eq 1 ]; then
+    echo "🔀 Paramètre --auto-merge détecté."
+    echo "⏳ Programmation du Squash & Merge automatique (attente de la CI éventuelle)..."
+    
+    # On demande à GitHub de fusionner (squash) et de supprimer la branche distante
+    gh pr merge --squash --auto --delete-branch
+    
+    echo "🧹 Nettoyage de l'environnement local..."
+    git checkout main
+    git pull origin main
+    git fetch -p             # Le fameux Fetch Prune !
+    git branch -d "$CURRENT_BRANCH"
+    
+    echo "✅ Terminé ! Vous êtes de retour sur 'main', propre et à jour."
+else
+    echo "✅ PR créée avec succès ! Allez sur GitHub pour la fusionner, puis exécutez le nettoyage."
+    echo "URL de la PR : $(gh pr view --json url -q .url)"
+fi

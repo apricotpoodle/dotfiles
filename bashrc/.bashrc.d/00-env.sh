@@ -5,7 +5,8 @@ fi
 
 # Chemins spécifiques (Composer, NPM).
 export PATH="$PATH:/home/fbouillerot/.config/composer/vendor/bin"
-export PATH="~/.npm-global/bin:$PATH"
+export PATH="$HOME/.npm-global/bin:$PATH"
+export PATH="$HOME/dev/pycharm-2026.2.1/bin:$PATH"
 
 # Éditeur et clés API.
 export VISUAL="hx"

@@ -1,0 +1,45 @@
+#!/bin/bash
+# ==============================================================================
+# Fichier : ~/.bash_completions.d/_template.bash.example
+# Rôle : Patron (Template) pour créer l'autocomplétion d'un nouveau script.
+#
+# INSTRUCTIONS D'UTILISATION :
+# 1. Copiez ce fichier : cp _template.bash.example mon_script.bash
+# 2. Remplacez TOUTES les occurrences de 'NOM_DU_SCRIPT' par le nom exact de la commande.
+# 3. Modifiez la variable 'opts' avec vos propres paramètres (--help, etc.).
+# ==============================================================================
+
+_NOM_DU_SCRIPT_completions()
+{
+    local cur prev opts
+    COMPREPLY=()
+    # Mot actuellement en train d'être tapé
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    # Mot précédent
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    
+    # --------------------------------------------------------------------------
+    # 1. DÉFINITION DES PARAMÈTRES (Options)
+    # --------------------------------------------------------------------------
+    opts="--help -h --version -v --force -f"
+
+    # Si l'utilisateur tape un tiret, on propose les options (flags)
+    if [[ ${cur} == -* ]] ; then
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+        return 0
+    fi
+
+    # --------------------------------------------------------------------------
+    # 2. SOUS-COMMANDES (Facultatif - Décommentez si besoin)
+    # Exemple : mon_script start | stop | restart
+    # --------------------------------------------------------------------------
+    # local commands="start stop restart status"
+    # # Si le premier argument (après la commande) n'est pas un tiret
+    # if [[ ${COMP_CWORD} -eq 1 && ${cur} != -* ]]; then
+    #     COMPREPLY=( $(compgen -W "${commands}" -- ${cur}) )
+    #     return 0
+    # fi
+}
+
+# Lier la fonction générée à la commande cible
+complete -F _NOM_DU_SCRIPT_completions NOM_DU_SCRIPT

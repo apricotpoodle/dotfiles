@@ -1,0 +1,129 @@
+#!/bin/bash
+
+SON="/usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga"
+
+# Fonction d'avertissement déclenchée à l'échéance
+declencher_alerte() {
+    local MESSAGE="$1"
+
+    # 1. Jouer le son
+    if command -v paplay >/dev/null 2>&1 && [ -f "$SON" ]; then
+        paplay "$SON" &
+    elif command -v aplay >/dev/null 2>&1 && [ -f "$SON" ]; then
+        aplay "$SON" &
+    fi
+
+    # 2. Afficher la notification/popup
+    # Si exécuté via 'at', on s'assure d'avoir accès à la session graphique (DISPLAY/DBUS)
+    export DISPLAY="${DISPLAY:-:0}"
+    export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
+
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -u critical "Minuteur" "$MESSAGE"
+    elif command -v xmessage >/dev/null 2>&1; then
+        xmessage -center "$MESSAGE"
+    else
+        echo -e "\a$MESSAGE"
+    fi
+}
+
+# Permet à la fonction de déclenchement d'être appelée par 'at' ou un sous-processus
+export -f declencher_alerte
+export SON
+
+# Programmer via 'sleep' (Minuteur relatif)
+programmer_timer() {
+    local DUREE="$1"
+    local MESSAGE="$2"
+
+    if ! [[ "$DUREE" =~ ^[0-9]+([.][0-9]+)?[smhd]?$ ]]; then
+        echo "Erreur : Format de durée invalide ('$DUREE'). (Ex: 10, 15m, 1.5h)" >&2
+        return 1
+    fi
+
+    ( sleep "$DUREE" && declencher_alerte "$MESSAGE" ) >/dev/null 2>&1 &
+    echo "Minuteur (sleep) programmé pour dans $DUREE."
+}
+
+# Programmer via 'at' (Heure précise)
+programmer_at() {
+    local HEURE="$1"
+    local MESSAGE="$2"
+
+    if ! command -v at >/dev/null 2>&1; then
+        echo "Erreur : La commande 'at' n'est pas installée (sudo apt install at)." >&2
+        return 1
+    fi
+
+    # Transmettre la commande d'alerte à 'at'
+    echo "bash -c 'declencher_alerte \"$MESSAGE\"'" | at "$HEURE" 2>/dev/null
+
+    if [ $? -eq 0 ]; then
+        echo "Alarme (at) programmée pour : $HEURE."
+    else
+        echo "Erreur : Format d'heure invalide pour 'at' (Ex: 15:30, 15:30 tomorrow, now + 10 minutes)." >&2
+        return 1
+    fi
+}
+
+# Menu interactif si aucun paramètre n'est fourni
+menu_interactif() {
+    echo "=== Configuration de l'alarme ==="
+    echo "1) Minuteur relatif (ex: 15m, 1h, 45s)"
+    echo "2) Heure précise via 'at' (ex: 15:30, 08:00 tomorrow)"
+    read -rp "Choisissez une option [1-2] : " CHOIX
+
+    case "$CHOIX" in
+        1)
+            read -rp "Durée (ex: 15m) : " DUREE
+            read -rp "Message [Le temps est écoulé !] : " MESSAGE
+            MESSAGE="${MESSAGE:-Le temps est écoulé !}"
+            programmer_timer "$DUREE" "$MESSAGE"
+            ;;
+        2)
+            read -rp "Heure/Planification (ex: 17:00) : " HEURE
+            read -rp "Message [Le temps est écoulé !] : " MESSAGE
+            MESSAGE="${MESSAGE:-Le temps est écoulé !}"
+            programmer_at "$HEURE" "$MESSAGE"
+            ;;
+        *)
+            echo "Choix invalide." >&2
+            exit 1
+            ;;
+    esac
+}
+
+# --- LOGIQUE PRINCIPALE ---
+
+MODE=""
+PARAM_TEMPS=""
+MESSAGE=""
+
+# Analyse des options en ligne de commande
+if [ $# -eq 0 ]; then
+    menu_interactif
+    exit 0
+fi
+
+# Gestion du flag -at / --at
+if [ "$1" = "-at" ] || [ "$1" = "--at" ]; then
+    MODE="at"
+    PARAM_TEMPS="$2"
+    MESSAGE="${3:-Le temps est écoulé !}"
+else
+    MODE="timer"
+    PARAM_TEMPS="$1"
+    MESSAGE="${2:-Le temps est écoulé !}"
+fi
+
+# Exécution selon le mode
+if [ "$MODE" = "at" ]; then
+    if [ -z "$PARAM_TEMPS" ]; then
+        echo "Erreur : L'heure est obligatoire avec le mode -at." >&2
+        echo "Usage: mon-timer -at <heure> [message]" >&2
+        exit 1
+    fi
+    programmer_at "$PARAM_TEMPS" "$MESSAGE"
+else
+    programmer_timer "$PARAM_TEMPS" "$MESSAGE"
+fi

@@ -9,6 +9,9 @@ set scroll-step 50
 # Interface ultra-minimaliste (pas de barres)
 set guioptions ""
 
+# Force l'ajustement à la largeur de la fenêtre à l'ouverture
+set adjust-open "width"
+
 # Recherche Synctex (Indispensable pour Helix)
 # Permet de cliquer sur le PDF pour revenir à la ligne dans Helix
 set synctex true

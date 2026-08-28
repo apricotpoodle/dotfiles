@@ -1,0 +1,81 @@
+#!/bin/bash
+# Description: Aspire une documentation web (HTML) et la convertit proprement en fichiers Markdown (.md)
+
+# Dépendances requises
+for cmd in wget html2text; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "❌ Erreur : L'outil '$cmd' est requis. Installez-le (ex: sudo apt install $cmd)."
+        exit 1
+    fi
+done
+
+# Valeurs par défaut
+DEPTH=2
+OUTPUT_DIR="scraped_doc"
+
+usage() {
+    echo "Usage: web_scraper -u URL [-d profondeur] [-o dossier_sortie]"
+    echo "Exemple: web_scraper -u https://tabulator.info/docs/5.5/ -d 2 -o docs/vendor_docs/tabulator"
+    exit 1
+}
+
+# 1. Analyse des arguments (Parsing)
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -u|--url)
+            URL="$2"; shift ;;
+        -d|--depth)
+            DEPTH="$2"; shift ;;
+        -o|--output)
+            OUTPUT_DIR="$2"; shift ;;
+        -h|--help)
+            usage ;;
+        *)
+            echo "❌ Option inconnue : $1"; usage ;;
+    esac
+    shift
+done
+
+if [ -z "$URL" ]; then
+    echo "❌ Erreur : L'option -u (URL) est obligatoire."
+    usage
+fi
+
+# 2. Création des répertoires de travail
+TMP_DIR=$(mktemp -d -t scraper-XXXXXXXXXX)
+mkdir -p "$OUTPUT_DIR"
+
+echo "🕸️  Début de l'aspiration de : $URL"
+echo "🤿 Profondeur max : $DEPTH"
+echo "📂 Dossier de sortie final : $OUTPUT_DIR"
+echo "⏳ Téléchargement des pages HTML en cours (Veuillez patienter)..."
+
+# 3. Aspiration récursive des fichiers HTML uniquement
+# -r (récursif), -l (profondeur), -nd (pas d'arborescence locale de dossiers), -A (uniquement html)
+wget -r -l "$DEPTH" -nd -q -A html,htm,php,asp --no-parent --show-progress "$URL" -P "$TMP_DIR"
+
+# 4. Conversion massive HTML -> Markdown (.md) avec nettoyage des Backspaces
+echo -e "\n🪄  Conversion des fichiers en Markdown épuré..."
+COUNT=0
+
+for file in "$TMP_DIR"/*; do
+    [ -f "$file" ] || continue
+    
+    filename=$(basename "$file")
+    clean_name="${filename%.*}"
+    
+    # --- LA CORRECTION MAGIQUE ---
+    # 1. html2text convertit le HTML en texte brut
+    # 2. sed "s/.//g" supprime instantanément toutes les lettres suivies d'un backspace (^H)
+    # 3. sed "s/\\\*//g" nettoie les résidus d'étoiles collées
+    html2text -utf8 "$file" | sed "s/.//g" | sed 's/\\\*//g' > "$OUTPUT_DIR/${clean_name}.md"
+    
+    ((COUNT++))
+done
+
+# 5. Nettoyage du dossier temporaire
+rm -rf "$TMP_DIR"
+
+echo "=========================================================================="
+echo "✅ Opération terminée ! $COUNT pages nettoyées et converties."
+echo "💡 Les fichiers propres sont dans : $OUTPUT_DIR"

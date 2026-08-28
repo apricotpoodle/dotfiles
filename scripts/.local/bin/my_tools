@@ -1,0 +1,78 @@
+#!/bin/bash
+# Description: Lanceur interactif (TUI) pour tous mes scripts personnels
+
+BIN_DIR="$HOME/.local/bin"
+
+# 1. Vérification des dépendances
+if command -v fzf >/dev/null 2>&1; then
+    USE_FZF=1
+else
+    USE_FZF=0
+    echo -e "\033[1;33m💡 Conseil : Installez 'fzf' (ex: sudo apt install fzf) pour avoir un magnifique menu interactif !\033[0m\n"
+fi
+
+# 2. Récupération dynamique des scripts et de leurs descriptions
+declare -A SCRIPT_MAP
+SCRIPT_LIST=()
+
+# On boucle sur tous les fichiers du dossier bin
+for script in "$BIN_DIR"/*; do
+    # Si c'est un fichier, qu'il est exécutable, et que ce n'est pas le lanceur lui-même
+    if [[ -f "$script" && -x "$script" && "$(basename "$script")" != "my_tools" ]]; then
+        script_name=$(basename "$script")
+        
+        # On extrait la ligne commençant par "# Description:" et on nettoie le préfixe
+        desc=$(grep -m 1 "^# Description:" "$script" | sed 's/^# Description: *//')
+        
+        # Si le script n'a pas respecté la norme, on met une valeur par défaut
+        [[ -z "$desc" ]] && desc="Aucune description fournie."
+
+        # Formatage de la ligne pour le menu (Nom du script aligné sur 25 caractères)
+        display_line=$(printf "%-25s │ %s" "$script_name" "$desc")
+        
+        SCRIPT_LIST+=("$display_line")
+        SCRIPT_MAP["$display_line"]="$script_name"
+    fi
+done
+
+# Vérification s'il y a des scripts
+if [ ${#SCRIPT_LIST[@]} -eq 0 ]; then
+    echo "❌ Aucun script exécutable trouvé dans $BIN_DIR."
+    exit 1
+fi
+
+# 3. Affichage du Menu (Le TUI)
+if [ $USE_FZF -eq 1 ]; then
+    # --- INTERFACE MODERNE FZF ---
+    selected_line=$(printf "%s\n" "${SCRIPT_LIST[@]}" | fzf \
+        --prompt="🛠️  Lequel lancer ? > " \
+        --header="Mes Scripts Personnels (~/.local/bin)" \
+        --layout=reverse \
+        --border=rounded \
+        --height=50% \
+        --info=inline)
+    
+    # Si l'utilisateur fait Echap (annulation)
+    [[ -z "$selected_line" ]] && echo "Action annulée." && exit 0
+    
+    selected_script="${SCRIPT_MAP[$selected_line]}"
+else
+    # --- INTERFACE NATIVE BASH (Fallback) ---
+    PS3=$'\n🛠️  Entrez le numéro du script à lancer (ou "q" pour quitter) : '
+    select selected_line in "${SCRIPT_LIST[@]}"; do
+        if [[ -n "$selected_line" ]]; then
+            selected_script="${SCRIPT_MAP[$selected_line]}"
+            break
+        elif [[ "$REPLY" == "q" ]]; then
+            echo "Action annulée."
+            exit 0
+        else
+            echo "❌ Choix invalide."
+        fi
+    done
+fi
+
+# 4. Lancement du script choisi
+echo -e "\n🚀 Exécution de : \033[1;32m$selected_script\033[0m...\n"
+# 'exec' remplace le processus actuel par le nouveau script, c'est très propre en mémoire
+exec "$selected_script"

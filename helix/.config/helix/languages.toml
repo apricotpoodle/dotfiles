@@ -3,8 +3,8 @@
 [[language]]
 name = "javascript"
 language-servers = [ "typescript-language-server" ]
-# formatter = { command = "prettier", args = ["--stdin-filepath", "%_"] }
 auto-format = true
+# formatter = { command = "prettier", args = ["--stdin-filepath", "%_"] }
 
 [language.formatter]
 command = "npx"
@@ -77,39 +77,29 @@ args = ["--stdio"]
 # args = ["language-server"]
 
 # --- Configuration pour LaTeX ---
-
-[language-server.texlab]
-command = "texlab"
-
-# --- Configuration pour LaTeX (utilise le script vlatex universel) ---
-[language-server.texlab.config.texlab.build]
-onSave = true
-executable = "vlatex"
-# Vous passez ici le moteur souhaité (-lualatex ou -pdf) et le fichier
-args = ["-lualatex", "-interaction=nonstopmode", "%f"]
-
-[language-server.texlab.config.texlab.forwardSearch]
-executable = "zathura"
-# %l est la ligne, %f le fichier source, %p le PDF
-args = ["--synctex-forward", "%l:1:%f", "%p"]
-
-# Configuration pour le linter 'chktex'.
-[language-server.texlab.config.texlab.chktex]
-onEdit = true
-# On passe l'argument "-n 12" à chktex pour désactiver l'avertissement n°12.
-# correspondant à la détection d'espace avant les doubles ponctuations
-additionalArgs = ["-n", "12"]
-
-# Association du langage LaTeX avec le serveur texlab.
 [[language]]
 name = "latex"
 scope = "text.tex.latex"
 file-types = ["tex", "sty", "cls"]
-comment-token = "%"
 language-servers = ["texlab"]
 roots = [".git", ".latexmkrc", "main.tex"]
 indent = { tab-width = 2, unit = "  " }
 auto-format = true
+
+[language-server.texlab]
+command = "texlab"
+
+[language-server.texlab.config.texlab]
+forwardSearchAfter = true
+
+[language-server.texlab.config.texlab.build]
+onSave = true
+executable = "vlatex"
+args = ["-lualatex", "-interaction=nonstopmode", "-synctex=1", "%f"]
+
+[language-server.texlab.config.texlab.forwardSearch]
+executable = "/usr/bin/zathura"
+args = ["--synctex-forward", "%l:1:%f", "%p"]
 
 # --- Configuration pour Python (Pyright + Ruff) ---
 

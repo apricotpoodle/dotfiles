@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+MOUNT_POINT="/media/fbouillerot/MyPassport"
+REPO="$MOUNT_POINT/backup-borg"
+TEMP_MOUNT="/tmp/borg-explore"
+
+# Récupération automatique de la passphrase
+export BORG_PASSPHRASE=$(cat ~/.borg_pass)
+
+# =============================================================================
+# VÉRIFICATIONS
+# =============================================================================
+if [ ! -d "$MOUNT_POINT" ]; then
+    echo "❌ Erreur : Le disque MyPassport n'est pas détecté."
+    exit 1
+fi
+
+if [ ! -d "$REPO" ]; then
+    echo "❌ Erreur : Le dépôt Borg $REPO est introuvable."
+    exit 1
+fi
+
+# =============================================================================
+# RÉCUPÉRATION ET SÉLECTION DE L'ARCHIVE
+# =============================================================================
+echo "⏳ Récupération de la liste des sauvegardes..."
+
+# On stocke la liste des archives dans un tableau Bash nommé ARCHIVES
+mapfile -t ARCHIVES < <(borg list --short "$REPO" -a 'XPS-*')
+
+# Vérifie si le tableau est vide
+if [ ${#ARCHIVES[@]} -eq 0 ]; then
+    echo "❌ Erreur : Aucune archive 'XPS-*' trouvée dans le dépôt."
+    exit 1
+fi
+
+echo "====================================================================="
+echo "📂 SAUVEGARDES DISPONIBLES :"
+echo "====================================================================="
+
+# On affiche chaque archive avec son numéro (i+1 car les tableaux commencent à 0)
+for i in "${!ARCHIVES[@]}"; do
+    echo "$((i+1))) ${ARCHIVES[$i]}"
+done
+echo "====================================================================="
+
+# On demande à l'utilisateur de choisir un numéro
+read -p "👉 Entrez le numéro de la sauvegarde à explorer : " CHOIX
+
+# Vérification que le choix est un nombre valide
+if ! [[ "$CHOIX" =~ ^[0-9]+$ ]] || [ "$CHOIX" -lt 1 ] || [ "$CHOIX" -gt "${#ARCHIVES[@]}" ]; then
+    echo "❌ Choix invalide. Annulation."
+    exit 1
+fi
+
+# On récupère le nom de l'archive correspondante (index = CHOIX - 1)
+INDEX=$((CHOIX-1))
+ARCHIVE="${ARCHIVES[$INDEX]}"
+
+echo "✅ Archive sélectionnée : $ARCHIVE"
+
+# =============================================================================
+# MONTAGE ET EXPLORATION
+# =============================================================================
+# Création du point de montage temporaire
+mkdir -p "$TEMP_MOUNT"
+
+echo "⏳ Montage de l'archive en cours..."
+borg mount "$REPO::$ARCHIVE" "$TEMP_MOUNT"
+
+if [ $? -eq 0 ]; then
+    echo "✅ Archive montée avec succès dans : $TEMP_MOUNT"
+    
+    # Ouvre le gestionnaire de fichiers
+    xdg-open "$TEMP_MOUNT" &
+    
+    echo "====================================================================="
+    echo "📂 Votre gestionnaire de fichiers est ouvert."
+    echo "Copiez les fichiers dont vous avez besoin vers votre dossier personnel."
+    echo "====================================================================="
+    
+    # Met le script en pause
+    read -p "🛑 Appuyez sur [ENTRÉE] UNIQUEMENT QUAND VOUS AVEZ FINI pour démonter l'archive..."
+    
+    # Démontage
+    echo "🧹 Démontage en cours..."
+    borg umount "$TEMP_MOUNT"
+    
+    if [ $? -eq 0 ]; then
+        rmdir "$TEMP_MOUNT"
+        echo "✅ Démontage terminé avec succès. À bientôt !"
+    else
+        echo "❌ Erreur lors du démontage. Démontez manuellement avec : borg umount $TEMP_MOUNT"
+    fi
+else
+    echo "❌ Échec du montage de l'archive."
+    rmdir "$TEMP_MOUNT"
+fi

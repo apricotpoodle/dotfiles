@@ -1,0 +1,97 @@
+#!/bin/bash
+# Description: Agrège plusieurs répertoires de code en un seul fichier texte balisé pour Gemini/NotebookLM
+
+# Valeurs par défaut
+OUTPUT_FILE="context_gemini.txt"
+REPERTOIRES=()
+
+# Aide / Usage
+usage() {
+    echo "Usage: code_bundler [-o fichier_sortie.txt] [rep1 rep2 ...]"
+    echo "Exemple: code_bundler -o mon_contexte.txt src/ templates/ docs/ webroot/js/"
+    exit 1
+}
+
+# 1. Analyse des arguments (Parsing)
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -o|--output)
+            if [[ -n "$2" && "$2" != -* ]]; then
+                OUTPUT_FILE="$2"
+                shift
+            else
+                echo "❌ Erreur : L'option -o nécessite un nom de fichier valide."
+                usage
+            fi
+            ;;
+        -h|--help)
+            usage
+            ;;
+        -*)
+            echo "❌ Option inconnue : $1"
+            usage
+            ;;
+        *)
+            # Tout argument qui n'est pas une option est considéré comme un répertoire
+            REPERTOIRES+=("$1")
+            ;;
+    esac
+    shift
+done
+
+# 2. Assignation des répertoires par défaut si aucun n'est fourni
+if [ ${#REPERTOIRES[@]} -eq 0 ]; then
+    echo "💡 Aucun répertoire spécifié. Utilisation des dossiers par défaut : config/ src/ templates/ docs/adr webroot/js/"
+    # On vérifie si les dossiers par défaut existent localement
+    [[ -d "config" ]] && REPERTOIRES+=("config/")
+    [[ -d "src" ]] && REPERTOIRES+=("src/")
+    [[ -d "templates" ]] && REPERTOIRES+=("templates/")
+    [[ -d "docs/adr" ]] && REPERTOIRES+=("docs/adr/")
+    [[ -d "webroot/js" ]] && REPERTOIRES+=("webroot/js/")
+    
+    # Sécurité si on est hors d'un projet CakePHP
+    if [ ${#REPERTOIRES[@]} -eq 0 ]; then
+        echo "❌ Erreur : Les dossiers par défaut (config/ src/, tempates/, docs/adr webroot/js/) n'existent pas ici."
+        echo "Veuillez spécifier manuellement les répertoires à analyser."
+        usage
+    fi
+fi
+
+# 3. Vérification de l'existence des répertoires saisis
+for dir in "${REPERTOIRES[@]}"; do
+    if [ ! -d "$dir" ]; then
+        echo "❌ Erreur : Le répertoire '$dir' n'existe pas."
+        exit 1
+    fi
+done
+
+# 4. Traitement et génération du bundle
+echo "📦 Analyse des répertoires : ${REPERTOIRES[*]}"
+echo "⏳ Génération du fichier de contexte : $OUTPUT_FILE ..."
+
+# Initialisation/Vidage du fichier de sortie
+> "$OUTPUT_FILE"
+
+# Recherche et concaténation
+# Exclut les fichiers binaires et volumineux, ne prend que le texte utile
+find "${REPERTOIRES[@]}" -type f \( \
+    -iname "*.php" -o \
+    -iname "*.js" -o \
+    -iname "*.md" -o \
+    -iname "*.json" -o \
+    -iname "*.sql" -o \
+    -iname "*.sh" -o \
+    -iname "*.bash" \
+\) -exec sh -c '
+    for file; do
+        echo "=== FILE: $file ==="
+        cat "$file"
+        echo -e "\n=== END_FILE ===\n"
+    done
+' _ {} + >> "$OUTPUT_FILE"
+
+# 5. Résultat
+TOTAL_LINES=$(wc -l < "$OUTPUT_FILE")
+echo "✅ Terminé avec succès !"
+echo "📝 Fichier généré : $OUTPUT_FILE ($TOTAL_LINES lignes agrégées)."
+echo "💡 Vous pouvez maintenant glisser-déposer ce fichier unique dans Google NotebookLM."

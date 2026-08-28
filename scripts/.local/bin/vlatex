@@ -1,28 +1,44 @@
 #!/bin/bash
 
-# 1. Récupération des chemins (logique précédente)
-for last; do true; done
-FILE_PATH="$last"
+# 1. Récupération du fichier (le dernier argument passé par Texlab)
+FILE_PATH="${@: -1}"
+if [[ ! -f "$FILE_PATH" ]]; then
+    notify-send -u critical "vlatex" "Erreur : Fichier introuvable ($FILE_PATH)"
+    exit 1
+fi
+
 DIR_PATH=$(dirname "$(realpath "$FILE_PATH")")
 FILE_NAME=$(basename "$FILE_PATH")
+# Récupère tous les arguments sauf le dernier
 ARGS_WITHOUT_FILE=("${@:1:$#-1}")
 
-# 2. Lancement de la compilation
+# 2. Lancement de la compilation via Docker
+# On utilise -t pour avoir un retour coloré si disponible
 docker run --rm -i \
+    --net=none \
     --user "$(id -u):$(id -g)" \
     -v "$DIR_PATH:/workdir" \
     -w /workdir \
     texlive/texlive:latest \
     latexmk "${ARGS_WITHOUT_FILE[@]}" "$FILE_NAME"
 
-# 3. Capture du code de sortie de Docker/Latexmk
 STATUS=$?
 
-# 4. Envoi de la notification
+# 3. Synchronisation et rafraîchissement
+sync
+sleep 0.3
+
+# 4. Envoi de la notification et gestion du visualiseur
 if [ $STATUS -eq 0 ]; then
-    notify-send -i document-print "LaTeX : Succès" "La compilation de $FILE_NAME est terminée." -t 6000
+    notify-send -i document-print "LaTeX : Succès" "La compilation de $FILE_NAME est terminée." -t 3000
+    
+    # Optionnel : S'assurer que le PDF est ouvert (si non géré par le LSP directement)
+    PDF_NAME="${FILE_NAME%.*}.pdf"
+    if ! pgrep -f "zathura.*$PDF_NAME" > /dev/null; then
+        zathura "$DIR_PATH/$PDF_NAME" &
+    fi
 else
-    notify-send -u critical -i error "LaTeX : Échec" "Erreur lors de la compilation de $FILE_NAME." -t 9000
+    notify-send -u critical -i error "LaTeX : Échec" "Erreur lors de la compilation de $FILE_NAME." -t 6000
 fi
 
 exit $STATUS
